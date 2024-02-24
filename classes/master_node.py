@@ -1,10 +1,13 @@
 # The master node is the node that wants to initiate the task. It is responsible for choosing the workers, initiating the
 # tasks, sending heartbeats to the working nodes, creating data shards, initiating data distribution, uploading, deleting,
 # downloading, and updating the dataset, and adding tasks to the queue.
+
+from task_queue import TaskQueue
+
 class MasterNode:
     def __init__(self):
         self.working_nodes = []
-        self.task_queue = []
+        self.task_queue = TaskQueue()
         self.data_locations = {}
 
     def choose_workers(self, num_workers):
@@ -45,4 +48,5 @@ class MasterNode:
 
     def add_task_to_queue(self, task):
         # Add task to the queue.
+        self.task_queue.enqueue(task)
         pass
