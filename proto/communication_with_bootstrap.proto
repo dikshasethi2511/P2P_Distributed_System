@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message JoinRequest {
+    string CPU = 1;
+    string RAM = 2;
+    string Storage = 3;
+}
+
+message JoinResponse {
+    repeated string existing_peers = 1;
+}
+
+service BootstrapService {
+    rpc JoinNetwork(JoinRequest) returns (JoinResponse);
+}
