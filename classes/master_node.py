@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from task_queue import TaskQueue
+import csv
 
 
 class MasterNode:
@@ -31,6 +32,13 @@ class MasterNode:
     def run_master(self):
         # Run master node.
         self.request_idle_workers()
+        print("Master Node Menu")
+        print("1. Upload Dataset")
+        inp = input("Enter your choice: ")
+        if inp == "1":
+            dataset = input("Enter the dataset directory path: ")
+            self.upload_dataset(dataset)
+            
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -41,9 +49,9 @@ class MasterNode:
                 num_workers = min(len(response.idle_workers), max_workers)
                 # Take user input or use a predetermined number of workers.
                 required_workers = int(input("Enter the number of tasks to assign: "))
+                self.number_of_tasks = required_workers
                 num_workers = min(num_workers, required_workers)
                 self.leftover_count = required_workers - num_workers
-                self.number_of_tasks = num_workers
                 self.working_nodes = self.choose_workers(
                     num_workers, response.idle_workers
                 )
@@ -80,8 +88,38 @@ class MasterNode:
         pass
 
     def upload_dataset(self, dataset):
-        # Upload dataset to bootstrap server or distribute to peers.
-        pass
+    # Upload dataset to bootstrap server or distribute to peers.
+        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        files = os.listdir(dataset)
+        for file_name in files:
+            file_path = os.path.join(dataset, file_name)
+            if os.path.isfile(file_path):
+                with open(file_path, 'r', newline='') as csvfile:
+                    csvreader = csv.reader(csvfile)
+                    content = list(csvreader)  # Read CSV content into a list
+
+                shard_size = len(content) // self.number_of_tasks
+                remainder = len(content) % self.number_of_tasks
+
+                # Create a directory for the file shards
+                base_name, extension = os.path.splitext(file_name)
+                file_shard_dir = os.path.join(dataset, f'{base_name}_shards')
+                os.makedirs(file_shard_dir, exist_ok=True)
+
+                # Divide the content into shards and store each shard in a separate file
+                start = 0
+                print(f"Shard size: {shard_size}")
+                print(f"Number of tasks: {self.number_of_tasks}")
+                for i in range(self.number_of_tasks):
+                    # Adjust the shard size for the last shard if there is a remainder
+                    size = shard_size + (1 if i < remainder else 0)
+                    shard_content = content[start:start+size]
+                    shard_file_path = os.path.join(file_shard_dir, f'{base_name}_shard_{i + 1}{extension}')
+                    with open(shard_file_path, 'w', newline='') as shard_file:
+                        shard_writer = csv.writer(shard_file)
+                        shard_writer.writerows(shard_content)
+                    start += size
+
 
     def delete_dataset(self, dataset):
         # Delete dataset.
