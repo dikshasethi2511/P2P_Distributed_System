@@ -50,3 +50,13 @@ class HeartbeatResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: str
     def __init__(self, status: _Optional[str] = ...) -> None: ...
+
+class Empty(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class IdleWorkersResponse(_message.Message):
+    __slots__ = ("idle_workers",)
+    IDLE_WORKERS_FIELD_NUMBER: _ClassVar[int]
+    idle_workers: _containers.RepeatedCompositeFieldContainer[Address]
+    def __init__(self, idle_workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...

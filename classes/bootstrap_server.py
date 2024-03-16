@@ -65,6 +65,13 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         # Return status of the heartbeat.
         return communication_with_bootstrap_pb2.HeartbeatResponse(status=status)
 
+    def GetIdleWorkers(self, request, context):
+        # Return list of idle workers.
+        response = communication_with_bootstrap_pb2.IdleWorkersResponse(
+            idle_workers=self.send_idle_workers()
+        )
+        return response
+
     def add_server_to_network(self, peer_uuid):
         # Add server to active_servers list.
         self.active_servers.append(peer_uuid)

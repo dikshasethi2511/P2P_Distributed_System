@@ -75,5 +75,5 @@ class Peer:
                 master = MasterNode(
                     self.bootstrap_server_address, self.IP, self.port, self.uuid
                 )
-                # master.run_master()
+                master.run_master()
             response = input("Do you want to be the master? (y/n): ")

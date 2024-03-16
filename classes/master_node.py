@@ -2,11 +2,25 @@
 # tasks, sending heartbeats to the working nodes, creating data shards, initiating data distribution, uploading, deleting,
 # downloading, and updating the dataset, and adding tasks to the queue.
 
+import grpc
+import sys
+import os
+import random
+
+sys.path.append("../proto")
+import communication_with_bootstrap_pb2
+import communication_with_bootstrap_pb2_grpc
+from dotenv import load_dotenv
+
+load_dotenv()
 from task_queue import TaskQueue
+
 
 class MasterNode:
     def __init__(self, bootstrap_server_address, IP, port, uuid):
         self.working_nodes = []
+        self.number_of_tasks = 0
+        self.leftover_count = 0
         self.task_queue = TaskQueue()
         self.data_locations = {}
         self.bootstrap_server_address = bootstrap_server_address
@@ -14,9 +28,40 @@ class MasterNode:
         self.port = port
         self.uuid = uuid
 
-    def choose_workers(self, num_workers):
+    def run_master(self):
+        # Run master node.
+        self.request_idle_workers()
+
+    def request_idle_workers(self):
+        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
+            try:
+                response = stub.GetIdleWorkers(communication_with_bootstrap_pb2.Empty())
+                max_workers = int(os.getenv("UPPER_LIMIT_FOR_WORKERS", default=10))
+                num_workers = min(len(response.idle_workers), max_workers)
+                # Take user input or use a predetermined number of workers.
+                required_workers = int(input("Enter the number of tasks to assign: "))
+                num_workers = min(num_workers, required_workers)
+                self.leftover_count = required_workers - num_workers
+                self.number_of_tasks = num_workers
+                self.working_nodes = self.choose_workers(
+                    num_workers, response.idle_workers
+                )
+
+            except grpc.RpcError as e:
+                print(f"Error: gRPC communication failed - {e}")
+
+    def choose_workers(self, num_workers, idle_workers):
         # Choose available workers for a task.
-        pass
+        # Filter out own address from the list of idle workers.
+        idle_workers_chosen = [
+            address
+            for address in idle_workers
+            if address.IP != self.IP or address.port != self.port
+        ]
+        chosen_workers = random.sample(idle_workers, num_workers)
+        print(f"Chosen workers: {chosen_workers}")
+        return chosen_workers
 
     def initiate_tasks(self, tasks):
         # Initiate tasks and distribute to chosen workers.
