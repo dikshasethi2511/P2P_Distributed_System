@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+
+message IdleHeartbeatRequest {
+    string uuid = 1;
+}
+
+message IdleHeartbeatResponse {
+    string status = 1;
+}
+
+service WorkerService {
+    rpc ActiveHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
+}

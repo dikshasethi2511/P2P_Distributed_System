@@ -5,10 +5,14 @@
 from task_queue import TaskQueue
 
 class MasterNode:
-    def __init__(self):
+    def __init__(self, bootstrap_server_address, IP, port, uuid):
         self.working_nodes = []
         self.task_queue = TaskQueue()
         self.data_locations = {}
+        self.bootstrap_server_address = bootstrap_server_address
+        self.IP = IP
+        self.port = port
+        self.uuid = uuid
 
     def choose_workers(self, num_workers):
         # Choose available workers for a task.
