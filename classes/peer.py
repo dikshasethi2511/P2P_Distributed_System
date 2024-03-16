@@ -2,11 +2,13 @@ import sys
 import grpc
 import time
 from threading import Event, Thread
+
 sys.path.append("../proto")
 import communication_with_bootstrap_pb2
 import communication_with_bootstrap_pb2_grpc
-from worker_node import WorkerNode 
+from worker_node import WorkerNode
 from master_node import MasterNode
+
 
 class Peer:
     def __init__(self, bootstrap_server_address, IP, port):
@@ -36,10 +38,12 @@ class Peer:
                 f"Received existing peers from Bootstrap Server: {response.existing_peers}"
             )
             self.exit_flag.set()
-            worker = WorkerNode(self.bootstrap_server_address, self.IP, self.port, self.uuid)
+            worker = WorkerNode(
+                self.bootstrap_server_address, self.IP, self.port, self.uuid
+            )
 
             thread1 = Thread(target=self.send_heartbeat)
-                             
+
             thread2 = Thread(target=worker.worker)
             thread3 = Thread(target=self.ask_to_be_master)
 
@@ -61,16 +65,15 @@ class Peer:
                     uuid=self.uuid,
                 )
                 status = stub.ActiveHeartbeat(request)
-            print(status)
+            print("Heartbeat status: ", status.status)
             time.sleep(3)
 
     def ask_to_be_master(self):
-        response = 'n'
+        response = "n"
         while self.exit_flag.is_set():
-            if response == 'y':
-                master = MasterNode(self.bootstrap_server_address, self.IP, self.port, self.uuid)
+            if response == "y":
+                master = MasterNode(
+                    self.bootstrap_server_address, self.IP, self.port, self.uuid
+                )
                 # master.run_master()
             response = input("Do you want to be the master? (y/n): ")
-            
-
-    
