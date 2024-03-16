@@ -24,6 +24,11 @@ class BootstrapServiceStub(object):
                 request_serializer=communication__with__bootstrap__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=communication__with__bootstrap__pb2.HeartbeatResponse.FromString,
                 )
+        self.GetIdleWorkers = channel.unary_unary(
+                '/BootstrapService/GetIdleWorkers',
+                request_serializer=communication__with__bootstrap__pb2.Empty.SerializeToString,
+                response_deserializer=communication__with__bootstrap__pb2.IdleWorkersResponse.FromString,
+                )
 
 
 class BootstrapServiceServicer(object):
@@ -41,6 +46,12 @@ class BootstrapServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetIdleWorkers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BootstrapServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -53,6 +64,11 @@ def add_BootstrapServiceServicer_to_server(servicer, server):
                     servicer.ActiveHeartbeat,
                     request_deserializer=communication__with__bootstrap__pb2.HeartbeatRequest.FromString,
                     response_serializer=communication__with__bootstrap__pb2.HeartbeatResponse.SerializeToString,
+            ),
+            'GetIdleWorkers': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetIdleWorkers,
+                    request_deserializer=communication__with__bootstrap__pb2.Empty.FromString,
+                    response_serializer=communication__with__bootstrap__pb2.IdleWorkersResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -95,5 +111,22 @@ class BootstrapService(object):
         return grpc.experimental.unary_unary(request, target, '/BootstrapService/ActiveHeartbeat',
             communication__with__bootstrap__pb2.HeartbeatRequest.SerializeToString,
             communication__with__bootstrap__pb2.HeartbeatResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetIdleWorkers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/BootstrapService/GetIdleWorkers',
+            communication__with__bootstrap__pb2.Empty.SerializeToString,
+            communication__with__bootstrap__pb2.IdleWorkersResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

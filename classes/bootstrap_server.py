@@ -42,11 +42,9 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
 
             # Add server to network.
             self.add_server_to_network(peer_uuid)
-            # Convert to the address proto.
-            existing_peers = [
-                communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
-                for peer in self.active_servers
-            ]
+
+            existing_peers = self.send_active_workers()
+
         else:
             peer_uuid = None
             existing_peers = []
@@ -67,6 +65,13 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         # Return status of the heartbeat.
         return communication_with_bootstrap_pb2.HeartbeatResponse(status=status)
 
+    def GetIdleWorkers(self, request, context):
+        # Return list of idle workers.
+        response = communication_with_bootstrap_pb2.IdleWorkersResponse(
+            idle_workers=self.send_idle_workers()
+        )
+        return response
+
     def add_server_to_network(self, peer_uuid):
         # Add server to active_servers list.
         self.active_servers.append(peer_uuid)
@@ -85,19 +90,30 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
 
     def send_idle_workers(self):
         # Send list of idle workers to requesting node.
-        pass
+        return [
+            communication_with_bootstrap_pb2.Address(
+                IP=self.servers[peer][0], port=self.servers[peer][1]
+            )
+            for peer in self.idle_servers
+        ]
 
     def send_active_workers(self):
         # Send list of active workers to requesting node.
-        pass
+        return [
+            communication_with_bootstrap_pb2.Address(
+                IP=self.servers[peer][0], port=self.servers[peer][1]
+            )
+            for peer in self.active_servers
+        ]
 
-    def send_heart_beat(self, server):
-        # Receive heartbeats from servers.
-        pass
-
-    def remove_server(self, server):
+    def remove_server(self, uuid):
         # Remove server from the network.
-        pass
+        if uuid in self.active_servers:
+            self.active_servers.remove(uuid)
+            self.idle_servers.remove(uuid)
+            self.server_specs.pop(self.servers[uuid])
+            self.servers.pop(uuid)
+            print(f"Server {uuid} has been removed from the network due to inactivity.")
 
     def check_heartbeat(self):
         while True:
@@ -106,6 +122,4 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
 
             for uuid in peers:
                 if time.time() - self.active_heartbeat[uuid] > 5:
-                    if uuid in self.active_servers:
-                        self.active_servers.remove(uuid)
-                        print(f"Server {uuid} has been removed from the network due to inactivity.")
+                    self.remove_server(uuid)

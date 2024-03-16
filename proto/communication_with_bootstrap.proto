@@ -29,7 +29,14 @@ message HeartbeatResponse {
     string status = 1;
 }
 
+message Empty {}
+
+message IdleWorkersResponse {
+    repeated Address idle_workers = 1;
+}
+
 service BootstrapService {
     rpc JoinNetwork(JoinRequest) returns (JoinResponse);
     rpc ActiveHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    rpc GetIdleWorkers(Empty) returns (IdleWorkersResponse);
 }
