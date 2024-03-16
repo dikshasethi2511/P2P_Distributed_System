@@ -1,13 +1,23 @@
 syntax = "proto3";
 
 message JoinRequest {
+    Address address = 1;
+    Specs specs = 2;
+}
+
+message Address {
+    string IP = 1;
+    string port = 2;
+}
+
+message Specs {
     string CPU = 1;
     string RAM = 2;
-    string Storage = 3;
+    string storage = 3;
 }
 
 message JoinResponse {
-    repeated string existing_peers = 1;
+    repeated Address existing_peers = 1;
 }
 
 service BootstrapService {

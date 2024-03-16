@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"communication_with_bootstrap.proto\"8\n\x0bJoinRequest\x12\x0b\n\x03\x43PU\x18\x01 \x01(\t\x12\x0b\n\x03RAM\x18\x02 \x01(\t\x12\x0f\n\x07Storage\x18\x03 \x01(\t\"&\n\x0cJoinResponse\x12\x16\n\x0e\x65xisting_peers\x18\x01 \x03(\t2>\n\x10\x42ootstrapService\x12*\n\x0bJoinNetwork\x12\x0c.JoinRequest\x1a\r.JoinResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"communication_with_bootstrap.proto\"?\n\x0bJoinRequest\x12\x19\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32\x08.Address\x12\x15\n\x05specs\x18\x02 \x01(\x0b\x32\x06.Specs\"#\n\x07\x41\x64\x64ress\x12\n\n\x02IP\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\t\"2\n\x05Specs\x12\x0b\n\x03\x43PU\x18\x01 \x01(\t\x12\x0b\n\x03RAM\x18\x02 \x01(\t\x12\x0f\n\x07storage\x18\x03 \x01(\t\"0\n\x0cJoinResponse\x12 \n\x0e\x65xisting_peers\x18\x01 \x03(\x0b\x32\x08.Address2>\n\x10\x42ootstrapService\x12*\n\x0bJoinNetwork\x12\x0c.JoinRequest\x1a\r.JoinResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -22,9 +22,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'communication_with_bootstra
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   _globals['_JOINREQUEST']._serialized_start=38
-  _globals['_JOINREQUEST']._serialized_end=94
-  _globals['_JOINRESPONSE']._serialized_start=96
-  _globals['_JOINRESPONSE']._serialized_end=134
-  _globals['_BOOTSTRAPSERVICE']._serialized_start=136
-  _globals['_BOOTSTRAPSERVICE']._serialized_end=198
+  _globals['_JOINREQUEST']._serialized_end=101
+  _globals['_ADDRESS']._serialized_start=103
+  _globals['_ADDRESS']._serialized_end=138
+  _globals['_SPECS']._serialized_start=140
+  _globals['_SPECS']._serialized_end=190
+  _globals['_JOINRESPONSE']._serialized_start=192
+  _globals['_JOINRESPONSE']._serialized_end=240
+  _globals['_BOOTSTRAPSERVICE']._serialized_start=242
+  _globals['_BOOTSTRAPSERVICE']._serialized_end=304
 # @@protoc_insertion_point(module_scope)
