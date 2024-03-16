@@ -1,10 +1,5 @@
 syntax = "proto3";
 
-message JoinRequest {
-    Address address = 1;
-    Specs specs = 2;
-}
-
 message Address {
     string IP = 1;
     string port = 2;
@@ -16,10 +11,25 @@ message Specs {
     string storage = 3;
 }
 
+message JoinRequest {
+    Address address = 1;
+    Specs specs = 2;
+}
+
 message JoinResponse {
-    repeated Address existing_peers = 1;
+    string uuid = 1;
+    repeated Address existing_peers = 2;
+}
+
+message HeartbeatRequest {
+    string uuid = 1;
+}
+
+message HeartbeatResponse {
+    string status = 1;
 }
 
 service BootstrapService {
     rpc JoinNetwork(JoinRequest) returns (JoinResponse);
+    rpc ActiveHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }

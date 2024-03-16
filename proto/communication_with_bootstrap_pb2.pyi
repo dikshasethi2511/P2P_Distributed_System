@@ -5,14 +5,6 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class JoinRequest(_message.Message):
-    __slots__ = ("address", "specs")
-    ADDRESS_FIELD_NUMBER: _ClassVar[int]
-    SPECS_FIELD_NUMBER: _ClassVar[int]
-    address: Address
-    specs: Specs
-    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., specs: _Optional[_Union[Specs, _Mapping]] = ...) -> None: ...
-
 class Address(_message.Message):
     __slots__ = ("IP", "port")
     IP_FIELD_NUMBER: _ClassVar[int]
@@ -31,8 +23,30 @@ class Specs(_message.Message):
     storage: str
     def __init__(self, CPU: _Optional[str] = ..., RAM: _Optional[str] = ..., storage: _Optional[str] = ...) -> None: ...
 
+class JoinRequest(_message.Message):
+    __slots__ = ("address", "specs")
+    ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    address: Address
+    specs: Specs
+    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., specs: _Optional[_Union[Specs, _Mapping]] = ...) -> None: ...
+
 class JoinResponse(_message.Message):
-    __slots__ = ("existing_peers",)
+    __slots__ = ("uuid", "existing_peers")
+    UUID_FIELD_NUMBER: _ClassVar[int]
     EXISTING_PEERS_FIELD_NUMBER: _ClassVar[int]
+    uuid: str
     existing_peers: _containers.RepeatedCompositeFieldContainer[Address]
-    def __init__(self, existing_peers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+    def __init__(self, uuid: _Optional[str] = ..., existing_peers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+
+class HeartbeatRequest(_message.Message):
+    __slots__ = ("uuid",)
+    UUID_FIELD_NUMBER: _ClassVar[int]
+    uuid: str
+    def __init__(self, uuid: _Optional[str] = ...) -> None: ...
+
+class HeartbeatResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...
