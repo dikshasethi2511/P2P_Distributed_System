@@ -1,5 +1,6 @@
 import sys
-sys.path.append('../proto')
+
+sys.path.append("../proto")
 import communication_with_bootstrap_pb2
 import communication_with_bootstrap_pb2_grpc
 
@@ -7,6 +8,7 @@ import communication_with_bootstrap_pb2_grpc
 # and their specifications. It also sends the list of active and idle servers to the requesting node. It also receives
 # heartbeats from the servers and removes the server from the network if it does not receive a heartbeat from the server.
 # The bootstrap server is not responsible for the actual computation of the tasks. It only manages the network of servers.
+
 
 class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServicer):
     def __init__(self):
@@ -16,27 +18,35 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
 
     def JoinNetwork(self, request, context):
         # Extract details from the JoinRequest.
-        cpu = request.CPU
-        ram = request.RAM
-        storage = request.Storage
+        IP = request.address.IP
+        port = request.address.port
+        cpu = request.specs.CPU
+        ram = request.specs.RAM
+        storage = request.specs.storage
 
-        # Store server specs in server_specs
-        server_specs = {'CPU': cpu, 'RAM': ram, 'Storage': storage}
-        self.server_specs[context.peer()] = server_specs
+        # Store server specs in server_specs.
+        server_specs = {"CPU": cpu, "RAM": ram, "Storage": storage}
+        self.server_specs[(IP, port)] = server_specs
 
-        # Add server to network
-        self.add_server_to_network(context.peer())
+        # Add server to network.
+        self.add_server_to_network((IP, port))
 
-        # Return existing peers
-        existing_peers = [peer for peer in self.active_servers]
-        response = communication_with_bootstrap_pb2.JoinResponse(existing_peers=existing_peers)
+        # Convert to the address proto.
+        existing_peers = [
+            communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
+            for peer in self.active_servers
+        ]
+
+        response = communication_with_bootstrap_pb2.JoinResponse(
+            existing_peers=existing_peers
+        )
         return response
 
     def add_server_to_network(self, server):
-        # Add server to active_servers list
+        # Add server to active_servers list.
         self.active_servers.append(server)
 
-        # Add server to idle_servers list
+        # Add server to idle_servers list.
         self.idle_servers.append(server)
 
     def send_idle_workers(self):
