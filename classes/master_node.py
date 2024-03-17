@@ -36,7 +36,7 @@ class MasterNode:
         # Run master node.
         self.request_idle_workers()
         print("Master Node Menu")
-        print("1. Upload Dataset")
+        print("1. Upload Dataset /n2. Compute Task /n3. Exit")
         inp = input("Enter your choice: ")
         if inp == "1":
             dataset = input("Enter the dataset directory path: ")
@@ -46,6 +46,12 @@ class MasterNode:
             # print(f"Alloted Workers to Shards: {self.alloted_workers_to_shards}")
             self.add_leftover_tasks()
             self.transmit_dataset()
+        elif inp == "2":
+            dataset = input("Enter the dataset directory path: ")
+            code = input("Enter the code directory path: ")
+            pass
+        elif inp == "3":
+            pass
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
