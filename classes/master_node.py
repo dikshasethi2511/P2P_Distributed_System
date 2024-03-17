@@ -46,7 +46,7 @@ class MasterNode:
         elif inp == "2":
             dataset = input("Enter the dataset directory path: ")
             self.store_and_transmit_dataset(dataset)
-            code = input("Enter the code directory path: ")
+            code = input("Enter the code file path: ")
             self.initiate_tasks(code)
             pass
         elif inp == "3":
