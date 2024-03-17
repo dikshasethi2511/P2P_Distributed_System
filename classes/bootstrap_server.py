@@ -7,12 +7,11 @@ sys.path.append("../proto")
 import communication_with_bootstrap_pb2
 import communication_with_bootstrap_pb2_grpc
 
+
 # The bootstrap server is responsible for managing the network of servers. It keeps track of the active and idle servers
 # and their specifications. It also sends the list of active and idle servers to the requesting node. It also receives
 # heartbeats from the servers and removes the server from the network if it does not receive a heartbeat from the server.
 # The bootstrap server is not responsible for the actual computation of the tasks. It only manages the network of servers.
-
-
 class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServicer):
     def __init__(self):
         self.active_servers = []
@@ -42,9 +41,7 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
 
             # Add server to network.
             self.add_server_to_network(peer_uuid)
-
             existing_peers = self.send_active_workers()
-
         else:
             peer_uuid = None
             existing_peers = []
@@ -73,8 +70,8 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         return response
 
     def UpdateNotIdleWorker(self, request, context):
-        peer_ip = request.IP
-        peer_port = request.port
+        peer_ip = request.address.IP
+        peer_port = request.address.port
         for peer in self.servers:
             if self.servers[peer] == (peer_ip, peer_port):
                 peer_uuid = peer
@@ -86,8 +83,8 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         return communication_with_bootstrap_pb2.Empty()
 
     def UpdateIdleWorker(self, request, context):
-        peer_ip = request.IP
-        peer_port = request.port
+        peer_ip = request.address.IP
+        peer_port = request.address.port
         for peer in self.servers:
             if self.servers[peer] == (peer_ip, peer_port):
                 peer_uuid = peer

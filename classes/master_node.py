@@ -136,7 +136,7 @@ class MasterNode:
 
     def upload_dataset(self, dataset):
         # Upload dataset to bootstrap server or distribute to peers.
-        # dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
         files = os.listdir(dataset)
         for file_name in files:
             file_path = os.path.join(dataset, file_name)
@@ -193,9 +193,9 @@ class MasterNode:
                 status = self.get_idle_ack(peer)
                 print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
-                    # self.update_bootstrap(peer, "BUSY")
+                    self.update_bootstrap(peer, "BUSY")
                     self.transmit_dataset_peer(shard, peer)
-                    # self.update_bootstrap(peer, "IDLE")
+                    self.update_bootstrap(peer, "IDLE")
 
     def transmit_dataset_peer(self, data, peer):
         with open(data[2], "r", newline="") as csvfile:
@@ -255,11 +255,7 @@ class MasterNode:
                     IP=peer[0], port=peer[1]
                 ),
             )
-            response = stub.UpdateIdleWorker(request)
-            print(f"Bootstrap updated with status: {response.status}")
-
             if state == "IDLE":
-                response = stub.UpdateIdleWorker(request)
+                stub.UpdateIdleWorker(request)
             elif state == "BUSY":
-                response = stub.UpdateNotIdleWorker(request)
-            print(f"Bootstrap updated with status: {response.status}")
+                stub.UpdateNotIdleWorker(request)
