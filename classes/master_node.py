@@ -36,22 +36,27 @@ class MasterNode:
         # Run master node.
         self.request_idle_workers()
         print("Master Node Menu")
-        print("1. Upload Dataset /n2. Compute Task /n3. Exit")
+        print(
+            "1. Upload Dataset /n2. Train a model by uploading dataset and code /n3. Exit"
+        )
         inp = input("Enter your choice: ")
         if inp == "1":
             dataset = input("Enter the dataset directory path: ")
-            self.upload_dataset(dataset)
-            self.initiate_data_distribution(self.data_locations, self.working_nodes)
-            # print(f"Data Locations: {self.data_locations}")
-            # print(f"Alloted Workers to Shards: {self.alloted_workers_to_shards}")
-            self.add_leftover_tasks()
-            self.transmit_dataset()
+            self.store_and_transmit_dataset(dataset)
         elif inp == "2":
             dataset = input("Enter the dataset directory path: ")
-            code = input("Enter the code directory path: ")
+            self.store_and_transmit_dataset(dataset)
+            code = input("Enter the code file path: ")
+            self.initiate_tasks(code)
             pass
         elif inp == "3":
             pass
+
+    def store_and_transmit_dataset(self, dataset):
+        self.upload_dataset(dataset)
+        self.initiate_data_distribution(self.data_locations, self.working_nodes)
+        self.add_leftover_tasks()
+        self.transmit_dataset()
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -86,9 +91,16 @@ class MasterNode:
         print(f"Chosen workers: {chosen_workers}")
         return chosen_workers
 
-    def initiate_tasks(self, tasks):
+    def initiate_tasks(self, filepath):
         # Initiate tasks and distribute to chosen workers.
-        pass
+        # Send the code to allocated workers.
+        for peer in self.alloted_workers_to_shards.keys():
+            status = self.get_idle_ack(peer)
+            print(f"Status: {status}")
+            if status == communication_with_worker_pb2.IDLE:
+                # self.update_bootstrap(peer, "BUSY")
+                self.transmit_model_peer(filepath, peer)
+                # self.update_bootstrap(peer, "IDLE")
 
     def send_heart_beat(self):
         # Send heartbeat to working nodes.
@@ -124,7 +136,7 @@ class MasterNode:
 
     def upload_dataset(self, dataset):
         # Upload dataset to bootstrap server or distribute to peers.
-        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        # dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
         files = os.listdir(dataset)
         for file_name in files:
             file_path = os.path.join(dataset, file_name)
@@ -181,9 +193,9 @@ class MasterNode:
                 status = self.get_idle_ack(peer)
                 print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
-                    self.update_bootstrap(peer, "BUSY")
+                    # self.update_bootstrap(peer, "BUSY")
                     self.transmit_dataset_peer(shard, peer)
-                    self.update_bootstrap(peer, "IDLE")
+                    # self.update_bootstrap(peer, "IDLE")
 
     def transmit_dataset_peer(self, data, peer):
         with open(data[2], "r", newline="") as csvfile:
@@ -202,6 +214,31 @@ class MasterNode:
             response = stub.DatasetTransfer(request)
             print(f"Dataset transmitted to {peer} with status: {response.status}")
 
+    def transmit_model_peer(self, filepath, peer):
+        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+
+            # Open the model file and read it in chunks
+            CHUNK_SIZE = 4096  # Adjust as needed
+            with open(filepath, "rb") as f:
+                while True:
+                    chunk = f.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+
+                    # Create a ModelRequest message with the current chunk and file path
+                    model_request = communication_with_worker_pb2.ModelRequest(
+                        modelPath=filepath, chunk=chunk
+                    )
+
+                    # Call the ModelTransfer RPC method with the ModelRequest
+                    model_response = stub.ModelTransfer(model_request)
+
+                    # Handle the response, if needed
+                    print("Received status:", model_response.status)
+
+        print("Model transmission completed to peer:", peer)
+
     def get_idle_ack(self, peer):
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
@@ -214,13 +251,15 @@ class MasterNode:
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
             stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
             request = communication_with_bootstrap_pb2.UpdateIdleRequest(
-                address=communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1]),
+                address=communication_with_bootstrap_pb2.Address(
+                    IP=peer[0], port=peer[1]
+                ),
             )
-            response = stub.UpdateIdle(request)
+            response = stub.UpdateIdleWorker(request)
             print(f"Bootstrap updated with status: {response.status}")
 
             if state == "IDLE":
-                response = stub.UpdateIdle(request)
+                response = stub.UpdateIdleWorker(request)
             elif state == "BUSY":
-                response = stub.UpdateNotIdle(request)
+                response = stub.UpdateNotIdleWorker(request)
             print(f"Bootstrap updated with status: {response.status}")

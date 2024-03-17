@@ -39,11 +39,45 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
     def DatasetTransfer(self, request, context):
         self.idle = False
         return self.store_dataset(request)
-    
+
     def IdleHeartbeat(self, request, context):
         if self.idle:
-            return communication_with_worker_pb2.IdleHeartbeatResponse(status=communication_with_worker_pb2.IDLE)
-        return communication_with_worker_pb2.IdleHeartbeatResponse(status=communication_with_worker_pb2.BUSY)
+            return communication_with_worker_pb2.IdleHeartbeatResponse(
+                status=communication_with_worker_pb2.IDLE
+            )
+        return communication_with_worker_pb2.IdleHeartbeatResponse(
+            status=communication_with_worker_pb2.BUSY
+        )
+
+    def ModelTransfer(self, request, context):
+        self.idle = False
+        # Define the directory path and ensure it exists
+        last_slash_index = request.modelPath.rfind("/")
+        output_directory = request.modelPath[:last_slash_index] + "/" + str(self.port)
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+
+        try:
+            # Ensure the directory exists
+            if not os.path.exists(output_directory):
+                os.makedirs(output_directory)
+
+            # Define the file path to store the model
+            output_file = os.path.join(
+                output_directory, os.path.basename(request.modelPath)
+            )
+
+            # Write the received chunk to the model file
+            with open(output_file, "ab") as f:
+                f.write(request.chunk)
+
+            return communication_with_worker_pb2.ModelResponse(status="SUCCESS")
+        except Exception as e:
+            return communication_with_worker_pb2.ModelResponse(
+                status=f"ERROR: {str(e)}"
+            )
+        finally:
+            self.idle = True
 
     def send_heart_beat(self):
         # Send heartbeat to master.

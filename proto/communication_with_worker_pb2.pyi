@@ -45,6 +45,20 @@ class Dataset(_message.Message):
     rows: _containers.RepeatedCompositeFieldContainer[Row]
     def __init__(self, rows: _Optional[_Iterable[_Union[Row, _Mapping]]] = ...) -> None: ...
 
+class ModelRequest(_message.Message):
+    __slots__ = ("modelPath", "chunk")
+    MODELPATH_FIELD_NUMBER: _ClassVar[int]
+    CHUNK_FIELD_NUMBER: _ClassVar[int]
+    modelPath: str
+    chunk: bytes
+    def __init__(self, modelPath: _Optional[str] = ..., chunk: _Optional[bytes] = ...) -> None: ...
+
+class ModelResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...
+
 class Row(_message.Message):
     __slots__ = ("values",)
     VALUES_FIELD_NUMBER: _ClassVar[int]

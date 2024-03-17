@@ -26,6 +26,15 @@ message Dataset {
     repeated Row rows = 1;
 }
 
+message ModelRequest {
+    string modelPath = 1;
+    bytes chunk = 2;
+}
+
+message ModelResponse {
+    string status = 1;
+}
+
 message Row {
     repeated string values = 1;
 }
@@ -33,4 +42,5 @@ message Row {
 service WorkerService {
     rpc IdleHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
     rpc DatasetTransfer(DatasetRequest) returns (DatasetResponse);
+    rpc ModelTransfer(ModelRequest) returns (ModelResponse) {}
 }
