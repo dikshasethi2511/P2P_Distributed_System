@@ -1,12 +1,16 @@
 syntax = "proto3";
 
 
+enum WorkerStatusEnum {
+    BUSY = 0;
+    IDLE = 1;
+}
 message IdleHeartbeatRequest {
-    string uuid = 1;
+    string message = 1;
 }
 
 message IdleHeartbeatResponse {
-    string status = 1;
+    WorkerStatusEnum status = 1;
 }
 
 message DatasetRequest {
@@ -26,8 +30,7 @@ message Row {
     repeated string values = 1;
 }
 
-
 service WorkerService {
-    rpc ActiveHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
+    rpc IdleHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
     rpc DatasetTransfer(DatasetRequest) returns (DatasetResponse);
 }

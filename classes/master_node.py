@@ -172,8 +172,12 @@ class MasterNode:
     def transmit_dataset(self):
         for peer in self.alloted_workers_to_shards.keys():
             for shard in self.alloted_workers_to_shards[peer]:
-                self.transmit_dataset_peer(shard, peer)
-        pass
+                status = self.get_idle_ack(peer)
+                print(f"Status: {status}")
+                if status == communication_with_worker_pb2.IDLE:
+                    # send boootstrap that they are busy
+                    self.transmit_dataset_peer(shard, peer)
+        # send bootstrap that they are free to work
 
     def transmit_dataset_peer(self, data, peer):
         with open(data[2], "r", newline="") as csvfile:
@@ -190,5 +194,10 @@ class MasterNode:
                 ),
             )
             response = stub.DatasetTransfer(request)
-            print(f"Dataset transmitted to {peer}")
-        print(f"{response}")
+            print(f"Dataset transmitted to {peer} with status: {response.status}")
+
+    def get_idle_ack(self, peer):
+        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+            response = stub.IdleHeartbeat(communication_with_worker_pb2.IdleHeartbeatRequest(message="Idle?"))
+        return response.status

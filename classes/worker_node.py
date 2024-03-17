@@ -19,22 +19,31 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
         self.IP = IP
         self.port = port
         self.uuid = uuid
+        self.idle = True
 
     def worker(self):
         # Worker thread.
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         print(f"Worker node running on {self.IP}:{self.port}")
-        worker_service = WorkerNode(self.bootstrap_server_address, self.IP, self.port, self.uuid)
+        worker_service = WorkerNode(
+            self.bootstrap_server_address, self.IP, self.port, self.uuid
+        )
         communication_with_worker_pb2_grpc.add_WorkerServiceServicer_to_server(
             worker_service, server
         )
-        server.add_insecure_port(f'{self.IP}:{self.port}')
+        server.add_insecure_port(f"{self.IP}:{self.port}")
         print(f"Worker node running on {self.IP}:{self.port}")
         server.start()
         server.wait_for_termination()
 
     def DatasetTransfer(self, request, context):
+        self.idle = False
         return self.store_dataset(request)
+    
+    def IdleHeartbeat(self, request, context):
+        if self.idle:
+            return communication_with_worker_pb2.IdleHeartbeatResponse(status=communication_with_worker_pb2.IDLE)
+        return communication_with_worker_pb2.IdleHeartbeatResponse(status=communication_with_worker_pb2.BUSY)
 
     def send_heart_beat(self):
         # Send heartbeat to master.
@@ -50,31 +59,26 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
 
     def store_dataset(self, request):
         # Process the received dataset
-        print(f"Received dataset from")
         dataset_path = request.datasetPath
         dataset = request.dataset
 
         # Define the directory path and ensure it exists
         last_slash_index = dataset_path.rfind("/")
         output_directory = dataset_path[:last_slash_index] + "/" + str(self.port)
-        print(output_directory)
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
 
         # Define the file path to store the dataset
-        output_file = output_directory +  "/" + os.path.split(dataset_path)[-1]
+        output_file = output_directory + "/" + os.path.split(dataset_path)[-1]
 
         # Write the dataset to a CSV file
         with open(output_file, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             for row in dataset.rows:
                 writer.writerow(row.values)
-        
-        print(f"Dataset stored in {output_file}")
 
-        # Acknowledge the receipt of the dataset
+        self.idle = True
         return communication_with_worker_pb2.DatasetResponse(status="SUCCESS")
-
 
 
 class StorageWorker(WorkerNode):
@@ -92,19 +96,18 @@ class StorageWorker(WorkerNode):
             os.makedirs(output_directory)
 
         # Define the file path to store the dataset
-        output_file = output_directory +  os.path.split(dataset_path)[-1]
+        output_file = output_directory + os.path.split(dataset_path)[-1]
 
         # Write the dataset to a CSV file
         with open(output_file, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             for row in dataset.rows:
                 writer.writerow(row.values)
-        
+
         print(f"Dataset stored in {output_file}")
 
         # Acknowledge the receipt of the dataset
         return communication_with_worker_pb2.DatasetResponse(status="SUCCESS")
-
 
     def send_dataset(self, peer):
         # Send dataset to a peer.

@@ -14,25 +14,27 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1f\x63ommunication_with_worker.proto\"$\n\x14IdleHeartbeatRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\t\"\'\n\x15IdleHeartbeatResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"@\n\x0e\x44\x61tasetRequest\x12\x13\n\x0b\x64\x61tasetPath\x18\x01 \x01(\t\x12\x19\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x08.Dataset\"!\n\x0f\x44\x61tasetResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"\x1d\n\x07\x44\x61taset\x12\x12\n\x04rows\x18\x01 \x03(\x0b\x32\x04.Row\"\x15\n\x03Row\x12\x0e\n\x06values\x18\x01 \x03(\t2\x87\x01\n\rWorkerService\x12@\n\x0f\x41\x63tiveHeartbeat\x12\x15.IdleHeartbeatRequest\x1a\x16.IdleHeartbeatResponse\x12\x34\n\x0f\x44\x61tasetTransfer\x12\x0f.DatasetRequest\x1a\x10.DatasetResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1f\x63ommunication_with_worker.proto\"\'\n\x14IdleHeartbeatRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\":\n\x15IdleHeartbeatResponse\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.WorkerStatusEnum\"@\n\x0e\x44\x61tasetRequest\x12\x13\n\x0b\x64\x61tasetPath\x18\x01 \x01(\t\x12\x19\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x08.Dataset\"!\n\x0f\x44\x61tasetResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"\x1d\n\x07\x44\x61taset\x12\x12\n\x04rows\x18\x01 \x03(\x0b\x32\x04.Row\"\x15\n\x03Row\x12\x0e\n\x06values\x18\x01 \x03(\t*&\n\x10WorkerStatusEnum\x12\x08\n\x04\x42USY\x10\x00\x12\x08\n\x04IDLE\x10\x01\x32\x85\x01\n\rWorkerService\x12>\n\rIdleHeartbeat\x12\x15.IdleHeartbeatRequest\x1a\x16.IdleHeartbeatResponse\x12\x34\n\x0f\x44\x61tasetTransfer\x12\x0f.DatasetRequest\x1a\x10.DatasetResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'communication_with_worker_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
+  _globals['_WORKERSTATUSENUM']._serialized_start=291
+  _globals['_WORKERSTATUSENUM']._serialized_end=329
   _globals['_IDLEHEARTBEATREQUEST']._serialized_start=35
-  _globals['_IDLEHEARTBEATREQUEST']._serialized_end=71
-  _globals['_IDLEHEARTBEATRESPONSE']._serialized_start=73
-  _globals['_IDLEHEARTBEATRESPONSE']._serialized_end=112
-  _globals['_DATASETREQUEST']._serialized_start=114
-  _globals['_DATASETREQUEST']._serialized_end=178
-  _globals['_DATASETRESPONSE']._serialized_start=180
-  _globals['_DATASETRESPONSE']._serialized_end=213
-  _globals['_DATASET']._serialized_start=215
-  _globals['_DATASET']._serialized_end=244
-  _globals['_ROW']._serialized_start=246
-  _globals['_ROW']._serialized_end=267
-  _globals['_WORKERSERVICE']._serialized_start=270
-  _globals['_WORKERSERVICE']._serialized_end=405
+  _globals['_IDLEHEARTBEATREQUEST']._serialized_end=74
+  _globals['_IDLEHEARTBEATRESPONSE']._serialized_start=76
+  _globals['_IDLEHEARTBEATRESPONSE']._serialized_end=134
+  _globals['_DATASETREQUEST']._serialized_start=136
+  _globals['_DATASETREQUEST']._serialized_end=200
+  _globals['_DATASETRESPONSE']._serialized_start=202
+  _globals['_DATASETRESPONSE']._serialized_end=235
+  _globals['_DATASET']._serialized_start=237
+  _globals['_DATASET']._serialized_end=266
+  _globals['_ROW']._serialized_start=268
+  _globals['_ROW']._serialized_end=289
+  _globals['_WORKERSERVICE']._serialized_start=332
+  _globals['_WORKERSERVICE']._serialized_end=465
 # @@protoc_insertion_point(module_scope)

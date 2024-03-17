@@ -14,8 +14,8 @@ class WorkerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.ActiveHeartbeat = channel.unary_unary(
-                '/WorkerService/ActiveHeartbeat',
+        self.IdleHeartbeat = channel.unary_unary(
+                '/WorkerService/IdleHeartbeat',
                 request_serializer=communication__with__worker__pb2.IdleHeartbeatRequest.SerializeToString,
                 response_deserializer=communication__with__worker__pb2.IdleHeartbeatResponse.FromString,
                 )
@@ -29,7 +29,7 @@ class WorkerServiceStub(object):
 class WorkerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def ActiveHeartbeat(self, request, context):
+    def IdleHeartbeat(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -44,8 +44,8 @@ class WorkerServiceServicer(object):
 
 def add_WorkerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'ActiveHeartbeat': grpc.unary_unary_rpc_method_handler(
-                    servicer.ActiveHeartbeat,
+            'IdleHeartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.IdleHeartbeat,
                     request_deserializer=communication__with__worker__pb2.IdleHeartbeatRequest.FromString,
                     response_serializer=communication__with__worker__pb2.IdleHeartbeatResponse.SerializeToString,
             ),
@@ -65,7 +65,7 @@ class WorkerService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def ActiveHeartbeat(request,
+    def IdleHeartbeat(request,
             target,
             options=(),
             channel_credentials=None,
@@ -75,7 +75,7 @@ class WorkerService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/WorkerService/ActiveHeartbeat',
+        return grpc.experimental.unary_unary(request, target, '/WorkerService/IdleHeartbeat',
             communication__with__worker__pb2.IdleHeartbeatRequest.SerializeToString,
             communication__with__worker__pb2.IdleHeartbeatResponse.FromString,
             options, channel_credentials,
