@@ -9,6 +9,25 @@ message IdleHeartbeatResponse {
     string status = 1;
 }
 
+message DatasetRequest {
+    string datasetPath = 1;
+    Dataset dataset = 2;
+}
+
+message DatasetResponse {
+    string status = 1;
+}
+
+message Dataset {
+    repeated Row rows = 1;
+}
+
+message Row {
+    repeated string values = 1;
+}
+
+
 service WorkerService {
     rpc ActiveHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
+    rpc DatasetTransfer(DatasetRequest) returns (DatasetResponse);
 }

@@ -121,5 +121,5 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
                 peers = self.active_servers
 
             for uuid in peers:
-                if time.time() - self.active_heartbeat[uuid] > 5:
+                if time.time() - self.active_heartbeat[uuid] > 50:
                     self.remove_server(uuid)

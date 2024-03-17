@@ -10,6 +10,8 @@ import random
 sys.path.append("../proto")
 import communication_with_bootstrap_pb2
 import communication_with_bootstrap_pb2_grpc
+import communication_with_worker_pb2
+import communication_with_worker_pb2_grpc
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -40,9 +42,10 @@ class MasterNode:
             dataset = input("Enter the dataset directory path: ")
             self.upload_dataset(dataset)
             self.initiate_data_distribution(self.data_locations, self.working_nodes)
-            print(f"Data Locations: {self.data_locations}")
-            print(f"Alloted Workers to Shards: {self.alloted_workers_to_shards}")
+            # print(f"Data Locations: {self.data_locations}")
+            # print(f"Alloted Workers to Shards: {self.alloted_workers_to_shards}")
             self.add_leftover_tasks()
+            self.transmit_dataset()
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -111,10 +114,11 @@ class MasterNode:
                 file_path = self.data_locations[base_folder][remaining_count]
                 self.task_queue.enqueue((base_folder, remaining_count, file_path))
 
-        print(f"Task Queue: {self.task_queue.queue}")
+        # print(f"Task Queue: {self.task_queue.queue}")
 
     def upload_dataset(self, dataset):
         # Upload dataset to bootstrap server or distribute to peers.
+        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
         files = os.listdir(dataset)
         for file_name in files:
             file_path = os.path.join(dataset, file_name)
@@ -164,3 +168,27 @@ class MasterNode:
     def update_dataset(self, dataset, new_data):
         # Update dataset.
         pass
+
+    def transmit_dataset(self):
+        for peer in self.alloted_workers_to_shards.keys():
+            for shard in self.alloted_workers_to_shards[peer]:
+                self.transmit_dataset_peer(shard, peer)
+        pass
+
+    def transmit_dataset_peer(self, data, peer):
+        with open(data[2], "r", newline="") as csvfile:
+            dataset = list(csv.reader(csvfile))
+
+        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+            request = communication_with_worker_pb2.DatasetRequest(
+                datasetPath=data[2],
+                dataset=communication_with_worker_pb2.Dataset(
+                    rows=[
+                        communication_with_worker_pb2.Row(values=row) for row in dataset
+                    ]
+                ),
+            )
+            response = stub.DatasetTransfer(request)
+            print(f"Dataset transmitted to {peer}")
+        print(f"{response}")

@@ -19,12 +19,23 @@ class WorkerServiceStub(object):
                 request_serializer=communication__with__worker__pb2.IdleHeartbeatRequest.SerializeToString,
                 response_deserializer=communication__with__worker__pb2.IdleHeartbeatResponse.FromString,
                 )
+        self.DatasetTransfer = channel.unary_unary(
+                '/WorkerService/DatasetTransfer',
+                request_serializer=communication__with__worker__pb2.DatasetRequest.SerializeToString,
+                response_deserializer=communication__with__worker__pb2.DatasetResponse.FromString,
+                )
 
 
 class WorkerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ActiveHeartbeat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DatasetTransfer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -37,6 +48,11 @@ def add_WorkerServiceServicer_to_server(servicer, server):
                     servicer.ActiveHeartbeat,
                     request_deserializer=communication__with__worker__pb2.IdleHeartbeatRequest.FromString,
                     response_serializer=communication__with__worker__pb2.IdleHeartbeatResponse.SerializeToString,
+            ),
+            'DatasetTransfer': grpc.unary_unary_rpc_method_handler(
+                    servicer.DatasetTransfer,
+                    request_deserializer=communication__with__worker__pb2.DatasetRequest.FromString,
+                    response_serializer=communication__with__worker__pb2.DatasetResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -62,5 +78,22 @@ class WorkerService(object):
         return grpc.experimental.unary_unary(request, target, '/WorkerService/ActiveHeartbeat',
             communication__with__worker__pb2.IdleHeartbeatRequest.SerializeToString,
             communication__with__worker__pb2.IdleHeartbeatResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DatasetTransfer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/WorkerService/DatasetTransfer',
+            communication__with__worker__pb2.DatasetRequest.SerializeToString,
+            communication__with__worker__pb2.DatasetResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

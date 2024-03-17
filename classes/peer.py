@@ -66,7 +66,7 @@ class Peer:
                 )
                 status = stub.ActiveHeartbeat(request)
             print("Heartbeat status: ", status.status)
-            time.sleep(3)
+            time.sleep(45)
 
     def ask_to_be_master(self):
         response = "n"
