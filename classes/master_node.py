@@ -181,9 +181,9 @@ class MasterNode:
                 status = self.get_idle_ack(peer)
                 print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
-                    # send boootstrap that they are busy
+                    self.update_bootstrap(peer, "BUSY")
                     self.transmit_dataset_peer(shard, peer)
-        # send bootstrap that they are free to work
+                    self.update_bootstrap(peer, "IDLE")
 
     def transmit_dataset_peer(self, data, peer):
         with open(data[2], "r", newline="") as csvfile:
@@ -205,5 +205,22 @@ class MasterNode:
     def get_idle_ack(self, peer):
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
-            response = stub.IdleHeartbeat(communication_with_worker_pb2.IdleHeartbeatRequest(message="Idle?"))
+            response = stub.IdleHeartbeat(
+                communication_with_worker_pb2.IdleHeartbeatRequest(message="Idle?")
+            )
         return response.status
+
+    def update_bootstrap(self, peer, state):
+        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
+            request = communication_with_bootstrap_pb2.UpdateIdleRequest(
+                address=communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1]),
+            )
+            response = stub.UpdateIdle(request)
+            print(f"Bootstrap updated with status: {response.status}")
+
+            if state == "IDLE":
+                response = stub.UpdateIdle(request)
+            elif state == "BUSY":
+                response = stub.UpdateNotIdle(request)
+            print(f"Bootstrap updated with status: {response.status}")

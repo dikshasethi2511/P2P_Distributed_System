@@ -71,6 +71,33 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
             idle_workers=self.send_idle_workers()
         )
         return response
+    
+    def UpdateNotIdle(self, request, context):
+        peer_ip = request.IP
+        peer_port = request.port
+        for peer in self.servers:
+            if self.servers[peer] == (peer_ip, peer_port):
+                peer_uuid = peer
+                break
+
+        if peer_uuid in self.idle_servers:
+            self.idle_servers.remove(peer_uuid)
+
+        return communication_with_bootstrap_pb2.Empty()
+    
+    def UpdateIdle(self, request, context):
+        peer_ip = request.IP
+        peer_port = request.port
+        for peer in self.servers:
+            if self.servers[peer] == (peer_ip, peer_port):
+                peer_uuid = peer
+                break
+
+        if peer_uuid not in self.idle_servers:
+            self.idle_servers.append(peer_uuid)
+
+        return communication_with_bootstrap_pb2.Empty()
+
 
     def add_server_to_network(self, peer_uuid):
         # Add server to active_servers list.

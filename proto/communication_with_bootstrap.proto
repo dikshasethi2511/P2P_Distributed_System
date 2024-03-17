@@ -29,6 +29,11 @@ message HeartbeatResponse {
     string status = 1;
 }
 
+message UpdateIdleRequest {
+    Address address = 1;
+}
+
+
 message Empty {}
 
 message IdleWorkersResponse {
@@ -39,4 +44,6 @@ service BootstrapService {
     rpc JoinNetwork(JoinRequest) returns (JoinResponse);
     rpc ActiveHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc GetIdleWorkers(Empty) returns (IdleWorkersResponse);
+    rpc UpdateIdleWorker(UpdateIdleRequest) returns (Empty);
+    rpc UpdateNotIdleWorker(UpdateIdleRequest) returns (Empty);
 }

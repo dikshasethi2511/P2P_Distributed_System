@@ -29,6 +29,16 @@ class BootstrapServiceStub(object):
                 request_serializer=communication__with__bootstrap__pb2.Empty.SerializeToString,
                 response_deserializer=communication__with__bootstrap__pb2.IdleWorkersResponse.FromString,
                 )
+        self.UpdateIdleWorker = channel.unary_unary(
+                '/BootstrapService/UpdateIdleWorker',
+                request_serializer=communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
+                response_deserializer=communication__with__bootstrap__pb2.Empty.FromString,
+                )
+        self.UpdateNotIdleWorker = channel.unary_unary(
+                '/BootstrapService/UpdateNotIdleWorker',
+                request_serializer=communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
+                response_deserializer=communication__with__bootstrap__pb2.Empty.FromString,
+                )
 
 
 class BootstrapServiceServicer(object):
@@ -52,6 +62,18 @@ class BootstrapServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateIdleWorker(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateNotIdleWorker(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BootstrapServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -69,6 +91,16 @@ def add_BootstrapServiceServicer_to_server(servicer, server):
                     servicer.GetIdleWorkers,
                     request_deserializer=communication__with__bootstrap__pb2.Empty.FromString,
                     response_serializer=communication__with__bootstrap__pb2.IdleWorkersResponse.SerializeToString,
+            ),
+            'UpdateIdleWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateIdleWorker,
+                    request_deserializer=communication__with__bootstrap__pb2.UpdateIdleRequest.FromString,
+                    response_serializer=communication__with__bootstrap__pb2.Empty.SerializeToString,
+            ),
+            'UpdateNotIdleWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateNotIdleWorker,
+                    request_deserializer=communication__with__bootstrap__pb2.UpdateIdleRequest.FromString,
+                    response_serializer=communication__with__bootstrap__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -128,5 +160,39 @@ class BootstrapService(object):
         return grpc.experimental.unary_unary(request, target, '/BootstrapService/GetIdleWorkers',
             communication__with__bootstrap__pb2.Empty.SerializeToString,
             communication__with__bootstrap__pb2.IdleWorkersResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def UpdateIdleWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/BootstrapService/UpdateIdleWorker',
+            communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
+            communication__with__bootstrap__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def UpdateNotIdleWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/BootstrapService/UpdateNotIdleWorker',
+            communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
+            communication__with__bootstrap__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
