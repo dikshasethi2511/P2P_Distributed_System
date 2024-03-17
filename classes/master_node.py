@@ -20,6 +20,7 @@ import csv
 class MasterNode:
     def __init__(self, bootstrap_server_address, IP, port, uuid):
         self.working_nodes = []
+        self.alloted_workers_to_shards = {}
         self.number_of_tasks = 0
         self.leftover_count = 0
         self.task_queue = TaskQueue()
@@ -38,7 +39,10 @@ class MasterNode:
         if inp == "1":
             dataset = input("Enter the dataset directory path: ")
             self.upload_dataset(dataset)
-            
+            self.initiate_data_distribution(self.data_locations, self.working_nodes)
+            print(f"Data Locations: {self.data_locations}")
+            print(f"Alloted Workers to Shards: {self.alloted_workers_to_shards}")
+            self.add_leftover_tasks()
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -50,16 +54,12 @@ class MasterNode:
                 # Take user input or use a predetermined number of workers.
                 required_workers = int(input("Enter the number of tasks to assign: "))
                 self.number_of_tasks = required_workers
-                num_workers = min(num_workers, required_workers)
-                self.leftover_count = required_workers - num_workers
-                self.working_nodes = self.choose_workers(
-                    num_workers, response.idle_workers
-                )
+                self.working_nodes = self.choose_workers(response.idle_workers)
 
             except grpc.RpcError as e:
                 print(f"Error: gRPC communication failed - {e}")
 
-    def choose_workers(self, num_workers, idle_workers):
+    def choose_workers(self, idle_workers):
         # Choose available workers for a task.
         # Filter out own address from the list of idle workers.
         idle_workers_chosen = [
@@ -67,7 +67,13 @@ class MasterNode:
             for address in idle_workers
             if address.IP != self.IP or address.port != self.port
         ]
-        chosen_workers = random.sample(idle_workers, num_workers)
+
+        if len(idle_workers_chosen) < self.number_of_tasks:
+            self.leftover_count = self.number_of_tasks - len(idle_workers_chosen)
+
+        available_workers = self.number_of_tasks - self.leftover_count
+        available_workers = min(available_workers, len(idle_workers_chosen))
+        chosen_workers = random.sample(idle_workers_chosen, available_workers)
         print(f"Chosen workers: {chosen_workers}")
         return chosen_workers
 
@@ -83,18 +89,37 @@ class MasterNode:
         # Create data shards.
         pass
 
-    def initiate_data_distribution(self, data, peers):
-        # Distribute data to peers.
-        pass
+    def initiate_data_distribution(self, data_locations, peers):
+        # Distribute one shard from each data location base folder to a peer.
+        allocated_shard_count = 1
+        for peer in peers:
+            peer_address = (peer.IP, peer.port)
+            self.alloted_workers_to_shards[peer_address] = []
+            for base_folder in data_locations.keys():
+                file_path = self.data_locations[base_folder][allocated_shard_count]
+                self.alloted_workers_to_shards[peer_address].append(
+                    (base_folder, allocated_shard_count, file_path)
+                )
+            allocated_shard_count += 1
+
+    def add_leftover_tasks(self):
+        # For each base folder, find the remaining shards and add them to the task queue.
+        for remaining_count in range(
+            self.number_of_tasks - self.leftover_count + 1, self.number_of_tasks + 1
+        ):
+            for base_folder in self.data_locations.keys():
+                file_path = self.data_locations[base_folder][remaining_count]
+                self.task_queue.enqueue((base_folder, remaining_count, file_path))
+
+        print(f"Task Queue: {self.task_queue.queue}")
 
     def upload_dataset(self, dataset):
-    # Upload dataset to bootstrap server or distribute to peers.
-        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        # Upload dataset to bootstrap server or distribute to peers.
         files = os.listdir(dataset)
         for file_name in files:
             file_path = os.path.join(dataset, file_name)
             if os.path.isfile(file_path):
-                with open(file_path, 'r', newline='') as csvfile:
+                with open(file_path, "r", newline="") as csvfile:
                     csvreader = csv.reader(csvfile)
                     content = list(csvreader)  # Read CSV content into a list
 
@@ -103,8 +128,9 @@ class MasterNode:
 
                 # Create a directory for the file shards
                 base_name, extension = os.path.splitext(file_name)
-                file_shard_dir = os.path.join(dataset, f'{base_name}_shards')
+                file_shard_dir = os.path.join(dataset, f"{base_name}_shards")
                 os.makedirs(file_shard_dir, exist_ok=True)
+                self.data_locations[file_shard_dir] = {}
 
                 # Divide the content into shards and store each shard in a separate file
                 start = 0
@@ -113,13 +139,19 @@ class MasterNode:
                 for i in range(self.number_of_tasks):
                     # Adjust the shard size for the last shard if there is a remainder
                     size = shard_size + (1 if i < remainder else 0)
-                    shard_content = content[start:start+size]
-                    shard_file_path = os.path.join(file_shard_dir, f'{base_name}_shard_{i + 1}{extension}')
-                    with open(shard_file_path, 'w', newline='') as shard_file:
+                    shard_content = content[start : start + size]
+                    shard_file_path = os.path.join(
+                        file_shard_dir, f"{base_name}_shard_{i + 1}{extension}"
+                    )
+
+                    # Add the shard file path to the data locations dictionary.
+                    # Store base folder and the shard count as the key.
+                    self.data_locations[file_shard_dir][i + 1] = shard_file_path
+
+                    with open(shard_file_path, "w", newline="") as shard_file:
                         shard_writer = csv.writer(shard_file)
                         shard_writer.writerows(shard_content)
                     start += size
-
 
     def delete_dataset(self, dataset):
         # Delete dataset.
@@ -131,9 +163,4 @@ class MasterNode:
 
     def update_dataset(self, dataset, new_data):
         # Update dataset.
-        pass
-
-    def add_task_to_queue(self, task):
-        # Add task to the queue.
-        self.task_queue.enqueue(task)
         pass
