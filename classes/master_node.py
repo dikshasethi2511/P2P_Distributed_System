@@ -37,7 +37,7 @@ class MasterNode:
         self.request_idle_workers()
         print("Master Node Menu")
         print(
-            "1. Upload Dataset /n2. Train a model by uploading dataset and code /n3. Exit"
+            "1. Upload Dataset /n2. Train a model by uploading code /n3. Exit"
         )
         inp = input("Enter your choice: ")
         if inp == "1":
@@ -48,7 +48,6 @@ class MasterNode:
             self.store_and_transmit_dataset(dataset)
             code = input("Enter the code file path: ")
             self.initiate_tasks(code)
-            pass
         elif inp == "3":
             pass
 
@@ -98,9 +97,9 @@ class MasterNode:
             status = self.get_idle_ack(peer)
             print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
-                # self.update_bootstrap(peer, "BUSY")
+                self.update_bootstrap(peer, "BUSY")
                 self.transmit_model_peer(filepath, peer)
-                # self.update_bootstrap(peer, "IDLE")
+                self.update_bootstrap(peer, "IDLE")
 
     def send_heart_beat(self):
         # Send heartbeat to working nodes.
@@ -136,39 +135,40 @@ class MasterNode:
 
     def upload_dataset(self, dataset):
         # Upload dataset to bootstrap server or distribute to peers.
-        dataset = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
-        files = os.listdir(dataset)
+        dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        files = os.listdir(dataset_path)
         for file_name in files:
-            file_path = os.path.join(dataset, file_name)
+            file_path = os.path.join(dataset_path, file_name)
             if os.path.isfile(file_path):
                 with open(file_path, "r", newline="") as csvfile:
                     csvreader = csv.reader(csvfile)
                     content = list(csvreader)  # Read CSV content into a list
+
+                    # Copy the first line to all shards
+                    first_line = content[0]
 
                 shard_size = len(content) // self.number_of_tasks
                 remainder = len(content) % self.number_of_tasks
 
                 # Create a directory for the file shards
                 base_name, extension = os.path.splitext(file_name)
-                file_shard_dir = os.path.join(dataset, f"{base_name}_shards")
-                os.makedirs(file_shard_dir, exist_ok=True)
-                self.data_locations[file_shard_dir] = {}
+                self.data_locations[dataset_path] = {}
 
                 # Divide the content into shards and store each shard in a separate file
-                start = 0
+                start = 1
                 print(f"Shard size: {shard_size}")
                 print(f"Number of tasks: {self.number_of_tasks}")
                 for i in range(self.number_of_tasks):
                     # Adjust the shard size for the last shard if there is a remainder
                     size = shard_size + (1 if i < remainder else 0)
-                    shard_content = content[start : start + size]
+                    shard_content = [first_line] + content[start : start + size]
                     shard_file_path = os.path.join(
-                        file_shard_dir, f"{base_name}_shard_{i + 1}{extension}"
+                        dataset_path, f"{base_name}_shard_{i + 1}{extension}"
                     )
 
                     # Add the shard file path to the data locations dictionary.
                     # Store base folder and the shard count as the key.
-                    self.data_locations[file_shard_dir][i + 1] = shard_file_path
+                    self.data_locations[dataset_path][i + 1] = shard_file_path
 
                     with open(shard_file_path, "w", newline="") as shard_file:
                         shard_writer = csv.writer(shard_file)
@@ -201,10 +201,14 @@ class MasterNode:
         with open(data[2], "r", newline="") as csvfile:
             dataset = list(csv.reader(csvfile))
 
+        components = data[2].split('/')  # Split the path into components
+        components[-2] = "compute"  # Replace the last-but-one component with "xyz"
+        filepath = '/'.join(components)
+
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
             request = communication_with_worker_pb2.DatasetRequest(
-                datasetPath=data[2],
+                datasetPath=filepath,
                 dataset=communication_with_worker_pb2.Dataset(
                     rows=[
                         communication_with_worker_pb2.Row(values=row) for row in dataset
@@ -215,8 +219,14 @@ class MasterNode:
             print(f"Dataset transmitted to {peer} with status: {response.status}")
 
     def transmit_model_peer(self, filepath, peer):
+        filepath = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
+
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+
+            components = filepath.split('/')  # Split the path into components
+            components[-2] = "compute"  # Replace the last-but-one component with "xyz"
+            storefilepath = '/'.join(components)
 
             # Open the model file and read it in chunks
             CHUNK_SIZE = 4096  # Adjust as needed
@@ -228,7 +238,7 @@ class MasterNode:
 
                     # Create a ModelRequest message with the current chunk and file path
                     model_request = communication_with_worker_pb2.ModelRequest(
-                        modelPath=filepath, chunk=chunk
+                        modelPath=storefilepath, chunk=chunk
                     )
 
                     # Call the ModelTransfer RPC method with the ModelRequest
