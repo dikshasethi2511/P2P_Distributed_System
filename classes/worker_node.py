@@ -7,6 +7,7 @@ import communication_with_worker_pb2
 from concurrent import futures
 import csv
 import os
+import subprocess
 
 
 # The WorkerNode class is a parent class for the StorageWorker and ComputationWorker classes. The WorkerNode class has
@@ -71,7 +72,20 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
             with open(output_file, "ab") as f:
                 f.write(request.chunk)
 
-            return communication_with_worker_pb2.ModelResponse(status="SUCCESS")
+            print("reached here")
+
+            if os.path.exists(output_file):
+                print("Model file received successfully.")
+                # Execute the Python file
+                # subprocess.run(["/usr/bin/python3", output_file])
+                os.system(f"python3 {output_file}")
+
+                return communication_with_worker_pb2.ModelResponse(status="SUCCESS")
+            else:
+                return communication_with_worker_pb2.ModelResponse(
+                    status="ERROR: Python file not found."
+                )
+
         except Exception as e:
             return communication_with_worker_pb2.ModelResponse(
                 status=f"ERROR: {str(e)}"
