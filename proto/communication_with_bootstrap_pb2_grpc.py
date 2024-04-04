@@ -39,6 +39,16 @@ class BootstrapServiceStub(object):
                 request_serializer=communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
                 response_deserializer=communication__with__bootstrap__pb2.Empty.FromString,
                 )
+        self.UpdateStorage = channel.unary_unary(
+                '/BootstrapService/UpdateStorage',
+                request_serializer=communication__with__bootstrap__pb2.UpdateStorageRequest.SerializeToString,
+                response_deserializer=communication__with__bootstrap__pb2.UpdateStorageResponse.FromString,
+                )
+        self.GetStorage = channel.unary_unary(
+                '/BootstrapService/GetStorage',
+                request_serializer=communication__with__bootstrap__pb2.GetStorageRequest.SerializeToString,
+                response_deserializer=communication__with__bootstrap__pb2.GetStorageResponse.FromString,
+                )
 
 
 class BootstrapServiceServicer(object):
@@ -74,6 +84,18 @@ class BootstrapServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BootstrapServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -101,6 +123,16 @@ def add_BootstrapServiceServicer_to_server(servicer, server):
                     servicer.UpdateNotIdleWorker,
                     request_deserializer=communication__with__bootstrap__pb2.UpdateIdleRequest.FromString,
                     response_serializer=communication__with__bootstrap__pb2.Empty.SerializeToString,
+            ),
+            'UpdateStorage': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateStorage,
+                    request_deserializer=communication__with__bootstrap__pb2.UpdateStorageRequest.FromString,
+                    response_serializer=communication__with__bootstrap__pb2.UpdateStorageResponse.SerializeToString,
+            ),
+            'GetStorage': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetStorage,
+                    request_deserializer=communication__with__bootstrap__pb2.GetStorageRequest.FromString,
+                    response_serializer=communication__with__bootstrap__pb2.GetStorageResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -194,5 +226,39 @@ class BootstrapService(object):
         return grpc.experimental.unary_unary(request, target, '/BootstrapService/UpdateNotIdleWorker',
             communication__with__bootstrap__pb2.UpdateIdleRequest.SerializeToString,
             communication__with__bootstrap__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def UpdateStorage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/BootstrapService/UpdateStorage',
+            communication__with__bootstrap__pb2.UpdateStorageRequest.SerializeToString,
+            communication__with__bootstrap__pb2.UpdateStorageResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetStorage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/BootstrapService/GetStorage',
+            communication__with__bootstrap__pb2.GetStorageRequest.SerializeToString,
+            communication__with__bootstrap__pb2.GetStorageResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

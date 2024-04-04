@@ -22,6 +22,7 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         self.heartbeat_lock = Lock()
         self.check_heartbeat_thread = Thread(target=self.check_heartbeat, args=())
         self.check_heartbeat_thread.start()
+        self.storageInformation = {}
 
     def JoinNetwork(self, request, context):
         # Extract details from the JoinRequest.
@@ -94,6 +95,38 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
             self.idle_servers.append(peer_uuid)
 
         return communication_with_bootstrap_pb2.Empty()
+    
+    def UpdateStorage(self, request, context):
+        master = (request.address.IP, request.address.port)
+        if master not in self.storageInformation.keys():
+            self.storageInformation[master] = {}
+
+        self.storageInformation[master][request.path] = {}
+        self.storageInformation[master][request.path]["type"] = "dataset" if request.type == 0 else "model"
+        self.storageInformation[master][request.path]["peers"] = []
+        
+        for peer in request.workers:
+            print(peer)
+            self.storageInformation[master][request.path]["peers"].append((peer.IP, peer.port))
+
+        print(self.storageInformation)
+        return communication_with_bootstrap_pb2.UpdateStorageResponse(status="SUCCESS")
+    
+    def GetStorage(self, request, context):
+        master = (request.address.IP, request.address.port)
+        path = request.path
+        if master in self.storageInformation.keys():
+            if path in self.storageInformation[master].keys():
+                peers = []
+                for peer in self.storageInformation[master][path]["peers"]:
+                    peers.append(
+                        communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
+                    )
+                print(peers)
+                return communication_with_bootstrap_pb2.GetStorageResponse(status="SUCCESS", workers=peers)
+        
+        return communication_with_bootstrap_pb2.GetStorageResponse(status="FAILURE", workers=[])
+        
 
     def add_server_to_network(self, peer_uuid):
         # Add server to active_servers list.
@@ -146,3 +179,5 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
             for uuid in peers:
                 if time.time() - self.active_heartbeat[uuid] > 50:
                     self.remove_server(uuid)
+
+    

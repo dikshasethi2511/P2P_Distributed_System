@@ -132,8 +132,6 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
 class StorageWorker(WorkerNode):
     def __init__(self, master):
         super().__init__(master)
-
-    def store_dataset(self, request):
         # Process the received dataset
         dataset_path = request.datasetPath
         dataset = request.dataset

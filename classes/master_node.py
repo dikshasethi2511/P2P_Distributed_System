@@ -31,29 +31,32 @@ class MasterNode:
         self.IP = IP
         self.port = port
         self.uuid = uuid
+        self.storageInformation = {}
 
     def run_master(self):
         # Run master node.
         self.request_idle_workers()
         print("Master Node Menu")
-        print("1. Upload Dataset /n2. Train a model by uploading code /n3. Exit")
+        print("1. Upload Dataset /n2. Upload Code /n3. Compute")
         inp = input("Enter your choice: ")
         if inp == "1":
             dataset = input("Enter the dataset directory path: ")
             self.store_and_transmit_dataset(dataset)
         elif inp == "2":
             dataset = input("Enter the dataset directory path: ")
-            self.store_and_transmit_dataset(dataset)
             code = input("Enter the code file path: ")
-            self.initiate_tasks(code)
+            self.initiate_tasks(code, dataset)
         elif inp == "3":
             pass
 
     def store_and_transmit_dataset(self, dataset):
+        if self.get_storage_information(dataset):
+            print(f"Dataset {dataset} already exists in storage.")
+            return
         self.upload_dataset(dataset)
         self.initiate_data_distribution(self.data_locations, self.working_nodes)
         self.add_leftover_tasks()
-        self.transmit_dataset()
+        self.transmit_dataset(dataset)
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -88,15 +91,20 @@ class MasterNode:
         print(f"Chosen workers: {chosen_workers}")
         return chosen_workers
 
-    def initiate_tasks(self, filepath):
+    def initiate_tasks(self, codepath, datasetpath):
         # Initiate tasks and distribute to chosen workers.
         # Send the code to allocated workers.
-        for peer in self.alloted_workers_to_shards.keys():
+        peers = self.get_storage_information(datasetpath)
+        if not peers:
+            print(f"Dataset {datasetpath} not found in storage. Upload the dataset first.")
+            return
+        print(f"Peers: {peers}")
+        for peer in peers:
             status = self.get_idle_ack(peer)
             print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
-                self.transmit_model_peer(filepath, peer)
+                self.transmit_model_peer(codepath, peer)
                 self.update_bootstrap(peer, "IDLE")
 
     def send_heart_beat(self):
@@ -131,48 +139,45 @@ class MasterNode:
 
         # print(f"Task Queue: {self.task_queue.queue}")
 
-    def upload_dataset(self, dataset):
+    def upload_dataset(self, dataset_path):
         # Upload dataset to bootstrap server or distribute to peers.
-        # dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
-        dataset_path = dataset
-        files = os.listdir(dataset_path)
-        for file_name in files:
-            file_path = os.path.join(dataset_path, file_name)
-            if os.path.isfile(file_path):
-                with open(file_path, "r", newline="") as csvfile:
-                    csvreader = csv.reader(csvfile)
-                    content = list(csvreader)  # Read CSV content into a list
+        # dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data/Iris.csv"
+        directory_path = os.path.dirname(dataset_path)
 
-                    # Copy the first line to all shards
-                    first_line = content[0]
+        with open(dataset_path, "r", newline="") as csvfile:
+            csvreader = csv.reader(csvfile)
+            content = list(csvreader)  # Read CSV content into a list
 
-                shard_size = len(content) // self.number_of_tasks
-                remainder = len(content) % self.number_of_tasks
+            # Copy the first line to all shards
+            first_line = content[0]
 
-                # Create a directory for the file shards
-                base_name, extension = os.path.splitext(file_name)
-                self.data_locations[dataset_path] = {}
+        shard_size = len(content) // self.number_of_tasks
+        remainder = len(content) % self.number_of_tasks
 
-                # Divide the content into shards and store each shard in a separate file
-                start = 1
-                print(f"Shard size: {shard_size}")
-                print(f"Number of tasks: {self.number_of_tasks}")
-                for i in range(self.number_of_tasks):
-                    # Adjust the shard size for the last shard if there is a remainder
-                    size = shard_size + (1 if i < remainder else 0)
-                    shard_content = [first_line] + content[start : start + size]
-                    shard_file_path = os.path.join(
-                        dataset_path, f"{base_name}_shard_{i + 1}{extension}"
-                    )
+        # Create a directory for the file shards
+        base_name, extension = os.path.splitext(dataset_path)
+        self.data_locations[directory_path] = {}
 
-                    # Add the shard file path to the data locations dictionary.
-                    # Store base folder and the shard count as the key.
-                    self.data_locations[dataset_path][i + 1] = shard_file_path
+        # Divide the content into shards and store each shard in a separate file
+        start = 1
+        print(f"Shard size: {shard_size}")
+        print(f"Number of tasks: {self.number_of_tasks}")
+        for i in range(self.number_of_tasks):
+            # Adjust the shard size for the last shard if there is a remainder
+            size = shard_size + (1 if i < remainder else 0)
+            shard_content = [first_line] + content[start : start + size]
+            shard_file_path = os.path.join(
+                directory_path, f"{base_name}_shard_{i + 1}{extension}"
+            )
 
-                    with open(shard_file_path, "w", newline="") as shard_file:
-                        shard_writer = csv.writer(shard_file)
-                        shard_writer.writerows(shard_content)
-                    start += size
+            # Add the shard file path to the data locations dictionary.
+            # Store base folder and the shard count as the key.
+            self.data_locations[directory_path][i + 1] = shard_file_path
+
+            with open(shard_file_path, "w", newline="") as shard_file:
+                shard_writer = csv.writer(shard_file)
+                shard_writer.writerows(shard_content)
+            start += size
 
     def delete_dataset(self, dataset):
         # Delete dataset.
@@ -186,23 +191,27 @@ class MasterNode:
         # Update dataset.
         pass
 
-    def transmit_dataset(self):
+    def transmit_dataset(self, dataset_path):
         for peer in self.alloted_workers_to_shards.keys():
             for shard in self.alloted_workers_to_shards[peer]:
                 status = self.get_idle_ack(peer)
                 print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
                     self.update_bootstrap(peer, "BUSY")
-                    self.transmit_dataset_peer(shard, peer)
+                    self.transmit_dataset_peer(shard, peer, dataset_path)
                     self.update_bootstrap(peer, "IDLE")
+        self.update_storage_information(dataset_path, 0)
 
-    def transmit_dataset_peer(self, data, peer):
+    def transmit_dataset_peer(self, data, peer, dataset_path):
         with open(data[2], "r", newline="") as csvfile:
             dataset = list(csv.reader(csvfile))
 
         components = data[2].split("/")  # Split the path into components
-        components[-2] = "compute"  # Replace the last-but-one component with "xyz"
+        components[-2] = "compute"
+        name, extention = components[-1].split(".")
+        components[-1] = name.split("_")[0] + "." + extention
         filepath = "/".join(components)
+        print(f"Filepath: {filepath}")
 
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
@@ -217,10 +226,15 @@ class MasterNode:
             response = stub.DatasetTransfer(request)
             print(f"Dataset transmitted to {peer} with status: {response.status}")
 
+            if response.status == "SUCCESS":
+                if self.storageInformation.get(dataset_path):
+                    self.storageInformation[dataset_path].append(peer)
+                else:
+                    self.storageInformation[dataset_path] = [peer]
+            print(f"Storage Information: {self.storageInformation}")
+
     def transmit_model_peer(self, filepath, peer):
-        # filepath = (
-        #     "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
-        # )
+        # filepath = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
 
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
@@ -251,6 +265,7 @@ class MasterNode:
         print("Model transmission completed to peer:", peer)
 
     def get_idle_ack(self, peer):
+        print(f"Checking status of {peer}")
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
             response = stub.IdleHeartbeat(
@@ -270,3 +285,40 @@ class MasterNode:
                 stub.UpdateIdleWorker(request)
             elif state == "BUSY":
                 stub.UpdateNotIdleWorker(request)
+
+    def update_storage_information(self, dataset_path, type):
+        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
+            peers = []
+            for peer in self.storageInformation[dataset_path]:
+                peers.append(
+                    communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
+                )
+            request = communication_with_bootstrap_pb2.UpdateStorageRequest(
+                address=communication_with_bootstrap_pb2.Address(
+                    IP=self.IP, port=self.port
+                ),
+                path=dataset_path,
+                type=0,
+                workers=peers,
+            )
+            if type == 0:
+                request.type = communication_with_bootstrap_pb2.FileTypleEnum.DATASET
+            else:
+                request.type = communication_with_bootstrap_pb2.FileTypleEnum.MODEL
+            response = stub.UpdateStorage(request)
+            print(f"Storage information updated with status: {response.status}")
+
+    def get_storage_information(self, dataset_path):
+        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
+            request = communication_with_bootstrap_pb2.GetStorageRequest(path=dataset_path, address=communication_with_bootstrap_pb2.Address(IP=self.IP, port=self.port))
+            response = stub.GetStorage(request)
+            print(f"Storage information for {dataset_path}: {response.status}")
+
+        if response.status == "SUCCESS":
+            peers = []
+            for peer in response.workers:
+                peers.append((peer.IP, peer.port))
+            return peers
+        return None

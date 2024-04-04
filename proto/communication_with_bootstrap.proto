@@ -1,5 +1,10 @@
 syntax = "proto3";
 
+enum FileTypleEnum {
+    DATASET = 0;
+    MODEL = 1;
+}
+
 message Address {
     string IP = 1;
     string port = 2;
@@ -33,11 +38,32 @@ message UpdateIdleRequest {
     Address address = 1;
 }
 
-
 message Empty {}
 
 message IdleWorkersResponse {
     repeated Address idle_workers = 1;
+}
+
+message UpdateStorageRequest {
+    Address address = 1;
+    string path = 2;
+    FileTypleEnum type = 3;
+    repeated Address workers = 4;
+
+}
+
+message UpdateStorageResponse {
+    string status = 1;
+}
+
+message GetStorageRequest {
+    string path = 1;
+    Address address = 2;
+}
+
+message GetStorageResponse {
+    string status = 1;
+    repeated Address workers = 2;
 }
 
 service BootstrapService {
@@ -46,4 +72,6 @@ service BootstrapService {
     rpc GetIdleWorkers(Empty) returns (IdleWorkersResponse);
     rpc UpdateIdleWorker(UpdateIdleRequest) returns (Empty);
     rpc UpdateNotIdleWorker(UpdateIdleRequest) returns (Empty);
+    rpc UpdateStorage(UpdateStorageRequest) returns (UpdateStorageResponse);
+    rpc GetStorage(GetStorageRequest) returns (GetStorageResponse);
 }

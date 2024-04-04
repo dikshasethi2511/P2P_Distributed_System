@@ -1,9 +1,17 @@
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class FileTypleEnum(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET: _ClassVar[FileTypleEnum]
+    MODEL: _ClassVar[FileTypleEnum]
+DATASET: FileTypleEnum
+MODEL: FileTypleEnum
 
 class Address(_message.Message):
     __slots__ = ("IP", "port")
@@ -66,3 +74,37 @@ class IdleWorkersResponse(_message.Message):
     IDLE_WORKERS_FIELD_NUMBER: _ClassVar[int]
     idle_workers: _containers.RepeatedCompositeFieldContainer[Address]
     def __init__(self, idle_workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+
+class UpdateStorageRequest(_message.Message):
+    __slots__ = ("address", "path", "type", "workers")
+    ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    WORKERS_FIELD_NUMBER: _ClassVar[int]
+    address: Address
+    path: str
+    type: FileTypleEnum
+    workers: _containers.RepeatedCompositeFieldContainer[Address]
+    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., path: _Optional[str] = ..., type: _Optional[_Union[FileTypleEnum, str]] = ..., workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+
+class UpdateStorageResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...
+
+class GetStorageRequest(_message.Message):
+    __slots__ = ("path", "address")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    address: Address
+    def __init__(self, path: _Optional[str] = ..., address: _Optional[_Union[Address, _Mapping]] = ...) -> None: ...
+
+class GetStorageResponse(_message.Message):
+    __slots__ = ("status", "workers")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    WORKERS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    workers: _containers.RepeatedCompositeFieldContainer[Address]
+    def __init__(self, status: _Optional[str] = ..., workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
