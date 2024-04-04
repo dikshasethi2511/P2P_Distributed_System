@@ -36,9 +36,7 @@ class MasterNode:
         # Run master node.
         self.request_idle_workers()
         print("Master Node Menu")
-        print(
-            "1. Upload Dataset /n2. Train a model by uploading code /n3. Exit"
-        )
+        print("1. Upload Dataset /n2. Train a model by uploading code /n3. Exit")
         inp = input("Enter your choice: ")
         if inp == "1":
             dataset = input("Enter the dataset directory path: ")
@@ -135,7 +133,8 @@ class MasterNode:
 
     def upload_dataset(self, dataset):
         # Upload dataset to bootstrap server or distribute to peers.
-        dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        # dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data"
+        dataset_path = dataset
         files = os.listdir(dataset_path)
         for file_name in files:
             file_path = os.path.join(dataset_path, file_name)
@@ -201,9 +200,9 @@ class MasterNode:
         with open(data[2], "r", newline="") as csvfile:
             dataset = list(csv.reader(csvfile))
 
-        components = data[2].split('/')  # Split the path into components
+        components = data[2].split("/")  # Split the path into components
         components[-2] = "compute"  # Replace the last-but-one component with "xyz"
-        filepath = '/'.join(components)
+        filepath = "/".join(components)
 
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
@@ -219,14 +218,16 @@ class MasterNode:
             print(f"Dataset transmitted to {peer} with status: {response.status}")
 
     def transmit_model_peer(self, filepath, peer):
-        filepath = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
+        # filepath = (
+        #     "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
+        # )
 
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
 
-            components = filepath.split('/')  # Split the path into components
+            components = filepath.split("/")  # Split the path into components
             components[-2] = "compute"  # Replace the last-but-one component with "xyz"
-            storefilepath = '/'.join(components)
+            storefilepath = "/".join(components)
 
             # Open the model file and read it in chunks
             CHUNK_SIZE = 4096  # Adjust as needed
