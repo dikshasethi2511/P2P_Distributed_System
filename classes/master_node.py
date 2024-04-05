@@ -32,6 +32,7 @@ class MasterNode:
         self.port = port
         self.uuid = uuid
         self.storageInformation = {}
+        self.modelLocations = {}
 
     def run_master(self):
         # Run master node.
@@ -40,14 +41,15 @@ class MasterNode:
         print("1. Upload Dataset /n2. Upload Code /n3. Compute")
         inp = input("Enter your choice: ")
         if inp == "1":
-            dataset = input("Enter the dataset directory path: ")
+            dataset = input("Enter the dataset file path: ")
             self.store_and_transmit_dataset(dataset)
         elif inp == "2":
-            dataset = input("Enter the dataset directory path: ")
+            dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
             self.initiate_tasks(code, dataset)
         elif inp == "3":
-            pass
+            dataset = input("Enter the dataset file path: ")
+            self.compute(datasetpath=dataset)
 
     def store_and_transmit_dataset(self, dataset):
         if self.get_storage_information(dataset):
@@ -57,6 +59,22 @@ class MasterNode:
         self.initiate_data_distribution(self.data_locations, self.working_nodes)
         self.add_leftover_tasks()
         self.transmit_dataset(dataset)
+
+    def compute(self, datasetpath):
+        peers = self.get_storage_information(datasetpath)
+        if not peers:
+            print(
+                f"Dataset {datasetpath} not found in storage. Upload the dataset first."
+            )
+            return
+        print(f"Peers: {peers}")
+        for peer in peers:
+            status = self.get_idle_ack(peer)
+            print(f"Status: {status}")
+            if status == communication_with_worker_pb2.IDLE:
+                self.update_bootstrap(peer, "BUSY")
+                self.compute_at_peer(peer)
+                self.update_bootstrap(peer, "IDLE")
 
     def request_idle_workers(self):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
@@ -96,7 +114,9 @@ class MasterNode:
         # Send the code to allocated workers.
         peers = self.get_storage_information(datasetpath)
         if not peers:
-            print(f"Dataset {datasetpath} not found in storage. Upload the dataset first.")
+            print(
+                f"Dataset {datasetpath} not found in storage. Upload the dataset first."
+            )
             return
         print(f"Peers: {peers}")
         for peer in peers:
@@ -233,6 +253,23 @@ class MasterNode:
                     self.storageInformation[dataset_path] = [peer]
             print(f"Storage Information: {self.storageInformation}")
 
+    def compute_at_peer(self, peer):
+        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+            request = communication_with_worker_pb2.ComputeRequest()
+            response = stub.Compute(request)
+            print(f"Computation completed at {peer} with status: {response.status}")
+
+            # Create a directory called weights if not present.
+            if not os.path.exists("weights"):
+                os.makedirs("weights")
+            
+            # Save the bytes received in response.chunk to a file called weights.joblib.
+            # For each peer append its address to the file name.
+            with open(f"weights/weights_{peer[0]}_{peer[1]}.joblib", "wb") as f:
+                f.write(response.chunk)
+            
+
     def transmit_model_peer(self, filepath, peer):
         # filepath = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
 
@@ -261,6 +298,7 @@ class MasterNode:
 
                     # Handle the response, if needed
                     print("Received status:", model_response.status)
+                    print("Path received:", model_response.modelPath)
 
         print("Model transmission completed to peer:", peer)
 
@@ -312,7 +350,12 @@ class MasterNode:
     def get_storage_information(self, dataset_path):
         with grpc.insecure_channel(self.bootstrap_server_address) as channel:
             stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            request = communication_with_bootstrap_pb2.GetStorageRequest(path=dataset_path, address=communication_with_bootstrap_pb2.Address(IP=self.IP, port=self.port))
+            request = communication_with_bootstrap_pb2.GetStorageRequest(
+                path=dataset_path,
+                address=communication_with_bootstrap_pb2.Address(
+                    IP=self.IP, port=self.port
+                ),
+            )
             response = stub.GetStorage(request)
             print(f"Storage information for {dataset_path}: {response.status}")
 

@@ -29,6 +29,11 @@ class WorkerServiceStub(object):
                 request_serializer=communication__with__worker__pb2.ModelRequest.SerializeToString,
                 response_deserializer=communication__with__worker__pb2.ModelResponse.FromString,
                 )
+        self.Compute = channel.unary_unary(
+                '/WorkerService/Compute',
+                request_serializer=communication__with__worker__pb2.ComputeRequest.SerializeToString,
+                response_deserializer=communication__with__worker__pb2.ComputeResponse.FromString,
+                )
 
 
 class WorkerServiceServicer(object):
@@ -52,6 +57,12 @@ class WorkerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Compute(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_WorkerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -69,6 +80,11 @@ def add_WorkerServiceServicer_to_server(servicer, server):
                     servicer.ModelTransfer,
                     request_deserializer=communication__with__worker__pb2.ModelRequest.FromString,
                     response_serializer=communication__with__worker__pb2.ModelResponse.SerializeToString,
+            ),
+            'Compute': grpc.unary_unary_rpc_method_handler(
+                    servicer.Compute,
+                    request_deserializer=communication__with__worker__pb2.ComputeRequest.FromString,
+                    response_serializer=communication__with__worker__pb2.ComputeResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -128,5 +144,22 @@ class WorkerService(object):
         return grpc.experimental.unary_unary(request, target, '/WorkerService/ModelTransfer',
             communication__with__worker__pb2.ModelRequest.SerializeToString,
             communication__with__worker__pb2.ModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Compute(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/WorkerService/Compute',
+            communication__with__worker__pb2.ComputeRequest.SerializeToString,
+            communication__with__worker__pb2.ComputeResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -21,6 +21,7 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
         self.port = port
         self.uuid = uuid
         self.idle = True
+        self.modelPath = ""
 
     def worker(self):
         # Worker thread.
@@ -50,6 +51,41 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
             status=communication_with_worker_pb2.BUSY
         )
 
+    def Compute(self, request, context):
+        self.idle = False
+        modelPath = self.modelPath
+        try:
+            if os.path.exists(modelPath):
+                print("Model file received successfully.")
+                # Execute the Python file
+                # subprocess.run(["/usr/bin/python3", output_file])
+                os.system(f"python3 {modelPath}")
+
+                # Take path of modelPath except the last part
+                last_slash_index = modelPath.rfind("/")
+
+                # Create file path with last_part as weights.joblib
+                output_file = modelPath[:last_slash_index] + "/weights.joblib"
+
+                # Read the saved weights joblib file and send it in the response
+                # as bytes with the field named chunk.
+                with open(output_file, "rb") as f:
+                    chunk = f.read()
+                    return communication_with_worker_pb2.ComputeResponse(
+                        status="SUCCESS", chunk=chunk
+                    )
+            else:
+                return communication_with_worker_pb2.ComputeResponse(
+                    status="ERROR: Could not compute"
+                )
+
+        except Exception as e:
+            return communication_with_worker_pb2.ModelResponse(
+                status=f"ERROR: {str(e)}"
+            )
+        finally:
+            self.idle = True
+
     def ModelTransfer(self, request, context):
         self.idle = False
         # Define the directory path and ensure it exists
@@ -78,9 +114,13 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
                 print("Model file received successfully.")
                 # Execute the Python file
                 # subprocess.run(["/usr/bin/python3", output_file])
-                os.system(f"python3 {output_file}")
+                # os.system(f"python3 {output_file}")
 
-                return communication_with_worker_pb2.ModelResponse(status="SUCCESS")
+                self.modelPath = output_file
+
+                return communication_with_worker_pb2.ModelResponse(
+                    status="SUCCESS", modelPath=output_file
+                )
             else:
                 return communication_with_worker_pb2.ModelResponse(
                     status="ERROR: Python file not found."

@@ -33,14 +33,24 @@ message ModelRequest {
 
 message ModelResponse {
     string status = 1;
+    string modelPath = 2;
 }
 
 message Row {
     repeated string values = 1;
 }
 
+message ComputeRequest {
+}
+
+message ComputeResponse {
+    string status = 1;
+    bytes chunk = 2;
+}
+
 service WorkerService {
     rpc IdleHeartbeat(IdleHeartbeatRequest) returns (IdleHeartbeatResponse);
     rpc DatasetTransfer(DatasetRequest) returns (DatasetResponse);
     rpc ModelTransfer(ModelRequest) returns (ModelResponse) {}
+    rpc Compute(ComputeRequest) returns (ComputeResponse) {}
 }
