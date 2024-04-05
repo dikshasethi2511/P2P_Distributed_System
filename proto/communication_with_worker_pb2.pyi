@@ -54,13 +54,27 @@ class ModelRequest(_message.Message):
     def __init__(self, modelPath: _Optional[str] = ..., chunk: _Optional[bytes] = ...) -> None: ...
 
 class ModelResponse(_message.Message):
-    __slots__ = ("status",)
+    __slots__ = ("status", "modelPath")
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    MODELPATH_FIELD_NUMBER: _ClassVar[int]
     status: str
-    def __init__(self, status: _Optional[str] = ...) -> None: ...
+    modelPath: str
+    def __init__(self, status: _Optional[str] = ..., modelPath: _Optional[str] = ...) -> None: ...
 
 class Row(_message.Message):
     __slots__ = ("values",)
     VALUES_FIELD_NUMBER: _ClassVar[int]
     values: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ComputeRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ComputeResponse(_message.Message):
+    __slots__ = ("status", "chunk")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CHUNK_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    chunk: bytes
+    def __init__(self, status: _Optional[str] = ..., chunk: _Optional[bytes] = ...) -> None: ...

@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 import joblib
 
-csv_file = "../compute/8080/Iris_shard_1.csv"
+csv_file = "../compute/PORT/Iris.csv"
 iris_data = pd.read_csv(csv_file)
 
 # Separate features and target variable
@@ -17,4 +17,4 @@ knn_model = KNeighborsClassifier(n_neighbors=k)
 knn_model.fit(X, y)
 
 # Save the trained model to a file
-joblib.dump(knn_model, "knn_model.joblib")
+joblib.dump(knn_model, "../compute/PORT/weights.joblib")
