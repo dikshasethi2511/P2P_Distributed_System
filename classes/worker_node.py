@@ -1,3 +1,4 @@
+import pickle
 import grpc
 import sys
 
@@ -99,31 +100,48 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
             if not os.path.exists(output_directory):
                 os.makedirs(output_directory)
 
+            print(request.chunk)
+            print(request.weightsChunk)
+
             # Define the file path to store the model
-            output_file = os.path.join(
+            model_output_file = os.path.join(
                 output_directory, os.path.basename(request.modelPath)
             )
 
             # Write the received chunk to the model file
-            with open(output_file, "ab") as f:
+            with open(model_output_file, "ab") as f:
                 f.write(request.chunk)
 
-            print("reached here")
+            # Deserialize the weights from the received chunk
+            weights_data = pickle.loads(request.weightsChunk)
 
-            if os.path.exists(output_file):
-                print("Model file received successfully.")
-                # Execute the Python file
-                # subprocess.run(["/usr/bin/python3", output_file])
-                # os.system(f"python3 {output_file}")
+            # Define the file path to store the weights
+            weights_output_file = os.path.join(
+                output_directory, os.path.basename(request.weightsPath)
+            )
 
-                self.modelPath = output_file
+            # Write the deserialized weights data to the weights file
+            with open(weights_output_file, "wb") as f:
+                f.write(weights_data)
+
+            print("Reached here")
+
+            if os.path.exists(model_output_file) and os.path.exists(
+                weights_output_file
+            ):
+                print("Model and weights files received successfully.")
+                # Execute the Python file if needed
+                # subprocess.run(["/usr/bin/python3", model_output_file])
+                # os.system(f"python3 {model_output_file}")
+
+                self.modelPath = model_output_file
 
                 return communication_with_worker_pb2.ModelResponse(
-                    status="SUCCESS", modelPath=output_file
+                    status="SUCCESS", modelPath=model_output_file
                 )
             else:
                 return communication_with_worker_pb2.ModelResponse(
-                    status="ERROR: Python file not found."
+                    status="ERROR: Files not found."
                 )
 
         except Exception as e:

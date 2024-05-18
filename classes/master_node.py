@@ -2,10 +2,15 @@
 # tasks, sending heartbeats to the working nodes, creating data shards, initiating data distribution, uploading, deleting,
 # downloading, and updating the dataset, and adding tasks to the queue.
 
+import pickle
 import grpc
 import sys
 import os
 import random
+
+import joblib
+import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
 
 sys.path.append("../proto")
 import communication_with_bootstrap_pb2
@@ -17,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from task_queue import TaskQueue
 import csv
+from joblib import load, dump
 
 
 class MasterNode:
@@ -46,10 +52,15 @@ class MasterNode:
         elif inp == "2":
             dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
-            self.initiate_tasks(code, dataset)
+            weights = input("Enter the weights file path: ")
+            self.initiate_tasks(code, dataset, weights)
         elif inp == "3":
             dataset = input("Enter the dataset file path: ")
             self.compute(datasetpath=dataset)
+            self.federated_averaging(
+                "/mnt/d/Diksha/8th_Sem/IP/P2P_Distributed_System/communication/weights",
+                1,
+            )
 
     def store_and_transmit_dataset(self, dataset):
         if self.get_storage_information(dataset):
@@ -109,7 +120,7 @@ class MasterNode:
         print(f"Chosen workers: {chosen_workers}")
         return chosen_workers
 
-    def initiate_tasks(self, codepath, datasetpath):
+    def initiate_tasks(self, codepath, datasetpath, weights):
         # Initiate tasks and distribute to chosen workers.
         # Send the code to allocated workers.
         peers = self.get_storage_information(datasetpath)
@@ -124,7 +135,7 @@ class MasterNode:
             print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
-                self.transmit_model_peer(codepath, peer)
+                self.transmit_model_peer(codepath, peer, weights)
                 self.update_bootstrap(peer, "IDLE")
 
     def send_heart_beat(self):
@@ -211,6 +222,48 @@ class MasterNode:
         # Update dataset.
         pass
 
+    def save_global_model_weights(self, weights):
+        # Save the global model weights
+        # Example:
+        dump(weights, "../weights/global_model.joblib")
+
+    def federated_averaging(self, folder_path, num_iterations):
+        # Initialize lists to hold the weights from each model
+        weights_list = []
+        classes_list = []
+
+        # Loop through the files in the folder
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".joblib"):
+                file_path = os.path.join(folder_path, filename)
+                # Load the model from the joblib file
+                model = joblib.load(file_path)
+                if isinstance(model, KNeighborsClassifier):
+                    weights_list.append(model._fit_X)
+                    classes_list.append(model.classes_)
+                else:
+                    raise ValueError(f"Unexpected model type in file {file_path}")
+
+        # Check if any weights were loaded
+        if not weights_list:
+            raise ValueError("No joblib files found in the specified folder.")
+
+        # Averaging the weights
+        averaged_weights = np.mean(weights_list, axis=0)
+        averaged_classes = np.unique(np.concatenate(classes_list))
+
+        # Create a new KNeighborsClassifier and set its attributes
+        final_model = KNeighborsClassifier()
+        final_model._fit_X = averaged_weights
+        final_model.classes_ = averaged_classes
+        # Note: Additional attributes of KNeighborsClassifier may need to be set
+
+        # Save the averaged model to a new joblib file
+        output_file = os.path.join(folder_path, "averaged_weights.joblib")
+        joblib.dump(final_model, output_file)
+
+        print(f"Averaged model saved to {output_file}")
+
     def transmit_dataset(self, dataset_path):
         for peer in self.alloted_workers_to_shards.keys():
             for shard in self.alloted_workers_to_shards[peer]:
@@ -263,25 +316,32 @@ class MasterNode:
             # Create a directory called weights if not present.
             if not os.path.exists("weights"):
                 os.makedirs("weights")
-            
+
             # Save the bytes received in response.chunk to a file called weights.joblib.
             # For each peer append its address to the file name.
             with open(f"weights/weights_{peer[0]}_{peer[1]}.joblib", "wb") as f:
                 f.write(response.chunk)
-            
 
-    def transmit_model_peer(self, filepath, peer):
-        # filepath = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py"
-
+    def transmit_model_peer(self, filepath, peer, weights_filepath):
         with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
             stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
 
-            components = filepath.split("/")  # Split the path into components
-            components[-2] = "compute"  # Replace the last-but-one component with "xyz"
+            # Construct the store file paths
+            components = filepath.split("/")
+            components[-2] = "compute"
             storefilepath = "/".join(components)
 
+            components = weights_filepath.split("/")
+            components[-2] = "compute"
+            storeweightspath = "/".join(components)
+
+            # Serialize the weights file
+            with open(weights_filepath, "rb") as f_weights:
+                weights_data = f_weights.read()
+                pickled_weights = pickle.dumps(weights_data)
+
             # Open the model file and read it in chunks
-            CHUNK_SIZE = 4096  # Adjust as needed
+            CHUNK_SIZE = 4096
             with open(filepath, "rb") as f:
                 while True:
                     chunk = f.read(CHUNK_SIZE)
@@ -290,7 +350,10 @@ class MasterNode:
 
                     # Create a ModelRequest message with the current chunk and file path
                     model_request = communication_with_worker_pb2.ModelRequest(
-                        modelPath=storefilepath, chunk=chunk
+                        modelPath=storefilepath,
+                        chunk=chunk,
+                        weightsPath=storeweightspath,
+                        weightsChunk=pickled_weights,
                     )
 
                     # Call the ModelTransfer RPC method with the ModelRequest
