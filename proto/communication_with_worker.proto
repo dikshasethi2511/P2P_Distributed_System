@@ -29,6 +29,8 @@ message Dataset {
 message ModelRequest {
     string modelPath = 1;
     bytes chunk = 2;
+    string weightsPath = 3;
+    bytes weightsChunk = 4;
 }
 
 message ModelResponse {

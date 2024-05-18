@@ -46,12 +46,16 @@ class Dataset(_message.Message):
     def __init__(self, rows: _Optional[_Iterable[_Union[Row, _Mapping]]] = ...) -> None: ...
 
 class ModelRequest(_message.Message):
-    __slots__ = ("modelPath", "chunk")
+    __slots__ = ("modelPath", "chunk", "weightsPath", "weightsChunk")
     MODELPATH_FIELD_NUMBER: _ClassVar[int]
     CHUNK_FIELD_NUMBER: _ClassVar[int]
+    WEIGHTSPATH_FIELD_NUMBER: _ClassVar[int]
+    WEIGHTSCHUNK_FIELD_NUMBER: _ClassVar[int]
     modelPath: str
     chunk: bytes
-    def __init__(self, modelPath: _Optional[str] = ..., chunk: _Optional[bytes] = ...) -> None: ...
+    weightsPath: str
+    weightsChunk: bytes
+    def __init__(self, modelPath: _Optional[str] = ..., chunk: _Optional[bytes] = ..., weightsPath: _Optional[str] = ..., weightsChunk: _Optional[bytes] = ...) -> None: ...
 
 class ModelResponse(_message.Message):
     __slots__ = ("status", "modelPath")
