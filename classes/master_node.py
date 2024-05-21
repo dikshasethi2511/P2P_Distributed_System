@@ -18,11 +18,13 @@ import communication_with_bootstrap_pb2_grpc
 import communication_with_worker_pb2
 import communication_with_worker_pb2_grpc
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 load_dotenv()
 from task_queue import TaskQueue
 import csv
-from joblib import load, dump
+from joblib import dump
+import time
 
 
 class MasterNode:
@@ -39,28 +41,49 @@ class MasterNode:
         self.uuid = uuid
         self.storageInformation = {}
         self.modelLocations = {}
+        self.storage_latencies = []
+        self.computation_latencies = []
 
     def run_master(self):
         # Run master node.
         self.request_idle_workers()
         print("Master Node Menu")
-        print("1. Upload Dataset /n2. Upload Code /n3. Compute")
+        print(
+            "1. Upload Dataset\n2. Upload Code\n3. Compute\n4. Plot Latency Graph\n5. Exit"
+        )
         inp = input("Enter your choice: ")
         if inp == "1":
             dataset = input("Enter the dataset file path: ")
-            self.store_and_transmit_dataset(dataset)
+            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data/Iris.csv
+            latency, _ = self.measure_latency(self.store_and_transmit_dataset, dataset)
+            print(f"Latency: {latency}")
+            self.storage_latencies.append(latency)
+            with open("storage_latencies.txt", "a") as f:
+                for latency in self.storage_latencies:
+                    f.write(f"{latency}\n")
+
         elif inp == "2":
             dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
+            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py
+            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/initial_knn_model.joblib
             weights = input("Enter the weights file path: ")
             self.initiate_tasks(code, dataset, weights)
         elif inp == "3":
             dataset = input("Enter the dataset file path: ")
-            self.compute(datasetpath=dataset)
+            latency, _ = self.measure_latency(self.compute, dataset)
+            self.computation_latencies.append(latency)
+            with open("compute_latencies.txt", "a") as f:
+                for latency in self.computation_latencies:
+                    f.write(f"{latency}\n")
             self.federated_averaging(
-                "/mnt/d/Diksha/8th_Sem/IP/P2P_Distributed_System/communication/weights",
+                "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/communication/weights",
                 1,
             )
+        elif inp == "4":
+            self.plot_latencies()
+        elif inp == "5":
+            exit()
 
     def store_and_transmit_dataset(self, dataset):
         if self.get_storage_information(dataset):
@@ -430,3 +453,43 @@ class MasterNode:
                 peers.append((peer.IP, peer.port))
             return peers
         return None
+
+    def plot_latencies(self):
+        # Plot storage latencies
+        plt.figure(figsize=(12, 6))
+        with open("storage_latencies.txt", "r") as f:
+            self.storage_latencies = [float(latency) for latency in f.readlines()]
+
+        print(self.storage_latencies)
+        plt.plot(self.storage_latencies, label="Storage Latency")
+        plt.xlabel("Operation")
+        plt.ylabel("Latency (s)")
+        plt.title("Storage Latency")
+        plt.legend()
+        plt.grid(True)
+        plt.savefig("storage_latency.png")  # Save the plot as a file
+        plt.close()
+
+        # Plot computation latencies
+        plt.figure(figsize=(12, 6))
+        with open("compute_latencies.txt", "r") as f:
+            self.computation_latencies = [float(latency) for latency in f.readlines()]
+        plt.plot(self.computation_latencies, label="Computation Latency")
+        plt.xlabel("Operation")
+        plt.ylabel("Latency (s)")
+        plt.title("Computation Latency")
+        plt.legend()
+        plt.grid(True)
+        plt.savefig("compute_latency.png")  # Save the plot as a file
+        plt.close()
+
+    def measure_latency(self, func, *args, **kwargs):
+        start_time = time.time()
+        print(f"s: {start_time}")
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"e: {end_time}")
+        latency = end_time - start_time
+        print(f"Latency: {latency}")
+        print()
+        return latency, result
