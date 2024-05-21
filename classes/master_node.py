@@ -172,7 +172,6 @@ class MasterNode:
 
     def upload_dataset(self, dataset_path):
         # Upload dataset to bootstrap server or distribute to peers.
-        # dataset_path = "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data/Iris.csv"
         directory_path = os.path.dirname(dataset_path)
 
         with open(dataset_path, "r", newline="") as csvfile:
@@ -182,8 +181,13 @@ class MasterNode:
             # Copy the first line to all shards
             first_line = content[0]
 
-        shard_size = len(content) // self.number_of_tasks
-        remainder = len(content) % self.number_of_tasks
+        # Calculate shard size and ensure all shards are of equal size by dropping rows if necessary
+        total_rows = len(content) - 1
+        shard_size = total_rows // self.number_of_tasks
+
+        # If there's a remainder, drop the extra rows
+        rows_to_use = shard_size * self.number_of_tasks
+        content = [first_line] + content[1 : rows_to_use + 1]
 
         # Create a directory for the file shards
         base_name, extension = os.path.splitext(dataset_path)
@@ -194,9 +198,7 @@ class MasterNode:
         print(f"Shard size: {shard_size}")
         print(f"Number of tasks: {self.number_of_tasks}")
         for i in range(self.number_of_tasks):
-            # Adjust the shard size for the last shard if there is a remainder
-            size = shard_size + (1 if i < remainder else 0)
-            shard_content = [first_line] + content[start : start + size]
+            shard_content = [first_line] + content[start : start + shard_size]
             shard_file_path = os.path.join(
                 directory_path, f"{base_name}_shard_{i + 1}{extension}"
             )
@@ -208,7 +210,7 @@ class MasterNode:
             with open(shard_file_path, "w", newline="") as shard_file:
                 shard_writer = csv.writer(shard_file)
                 shard_writer.writerows(shard_content)
-            start += size
+            start += shard_size
 
     def delete_dataset(self, dataset):
         # Delete dataset.
