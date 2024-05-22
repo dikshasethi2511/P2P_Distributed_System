@@ -10,6 +10,7 @@ import communication_with_bootstrap_pb2_grpc
 from worker_node import WorkerNode
 from master_node import MasterNode
 
+
 class Peer:
     def __init__(self, bootstrap_server_address, IP, port):
         self.bootstrap_server_address = bootstrap_server_address
@@ -19,9 +20,14 @@ class Peer:
         self.metrics_file = "metrics.txt"
 
     def connect_to_bootstrap_server(self, CPU, RAM, storage):
-        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            self.register_peer(stub, CPU, RAM, storage)
+        try:
+            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                    channel
+                )
+                self.register_peer(stub, CPU, RAM, storage)
+        except Exception as e:
+            print(f"Error connecting to Bootstrap Server: {e}")
 
     def register_peer(self, stub, CPU, RAM, storage):
         request = communication_with_bootstrap_pb2.JoinRequest(
@@ -35,9 +41,13 @@ class Peer:
         response = stub.JoinNetwork(request)
         if response.existing_peers:
             self.uuid = response.uuid
-            print(f"Received existing peers from Bootstrap Server: {response.existing_peers}")
+            print(
+                f"Received existing peers from Bootstrap Server: {response.existing_peers}"
+            )
             self.exit_flag.set()
-            worker = WorkerNode(self.bootstrap_server_address, self.IP, self.port, self.uuid)
+            worker = WorkerNode(
+                self.bootstrap_server_address, self.IP, self.port, self.uuid
+            )
 
             thread1 = Thread(target=self.send_heartbeat)
             thread2 = Thread(target=worker.worker)
@@ -56,18 +66,27 @@ class Peer:
 
     def send_heartbeat(self):
         while self.exit_flag.is_set():
-            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-                request = communication_with_bootstrap_pb2.HeartbeatRequest(uuid=self.uuid)
-                status = stub.ActiveHeartbeat(request)
-            print("Heartbeat status: ", status.status)
-            time.sleep(45)
+            try:
+                with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                    stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                        channel
+                    )
+                    request = communication_with_bootstrap_pb2.HeartbeatRequest(
+                        uuid=self.uuid
+                    )
+                    status = stub.ActiveHeartbeat(request)
+                print("Heartbeat status: ", status.status)
+                time.sleep(30)
+            except Exception as e:
+                print(f"Error sending heartbeat to Bootstrap Server: {e}")
 
     def ask_to_be_master(self):
         response = "n"
         while self.exit_flag.is_set():
             if response == "y":
-                master = MasterNode(self.bootstrap_server_address, self.IP, self.port, self.uuid)
+                master = MasterNode(
+                    self.bootstrap_server_address, self.IP, self.port, self.uuid
+                )
                 master.run_master()
             response = input("Do you want to be the master? (y/n): ")
 
@@ -78,7 +97,7 @@ class Peer:
             timestamp = time.time()
             cpu_percent = psutil.cpu_percent(interval=1)
             ram_percent = psutil.virtual_memory().percent
-            storage_used = psutil.disk_usage('/').used
+            storage_used = psutil.disk_usage("/").used
             with open(self.metrics_file, "a") as f:
                 f.write(f"{timestamp},{cpu_percent},{ram_percent},{storage_used}\n")
             time.sleep(10)

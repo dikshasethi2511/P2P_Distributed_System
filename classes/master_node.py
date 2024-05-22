@@ -46,23 +46,25 @@ class MasterNode:
 
     def run_master(self):
         # Run master node.
-        self.request_idle_workers()
+
         print("Master Node Menu")
         print(
             "1. Upload Dataset\n2. Upload Code\n3. Compute\n4. Plot Latency Graph\n5. Exit"
         )
         inp = input("Enter your choice: ")
         if inp == "1":
+            if self.request_idle_workers() == 0:
+                return
             dataset = input("Enter the dataset file path: ")
             # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data/Iris.csv
-            latency, _ = self.measure_latency(self.store_and_transmit_dataset, dataset)
-            print(f"Latency: {latency}")
+            latency = self.measure_latency(self.store_and_transmit_dataset, dataset)
             self.storage_latencies.append(latency)
             with open("storage_latencies.txt", "a") as f:
                 for latency in self.storage_latencies:
                     f.write(f"{latency}\n")
-
         elif inp == "2":
+            if self.request_idle_workers() == 0:
+                return
             dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
             # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py
@@ -70,20 +72,21 @@ class MasterNode:
             weights = input("Enter the weights file path: ")
             self.initiate_tasks(code, dataset, weights)
         elif inp == "3":
+            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/communication/weights
+            if self.request_idle_workers() == 0:
+                return
             dataset = input("Enter the dataset file path: ")
-            latency, _ = self.measure_latency(self.compute, dataset)
+            latency = self.measure_latency(self.compute, dataset)
             self.computation_latencies.append(latency)
             with open("compute_latencies.txt", "a") as f:
                 for latency in self.computation_latencies:
                     f.write(f"{latency}\n")
-            self.federated_averaging(
-                "/mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/communication/weights",
-                1,
-            )
+            weights = input("Enter the directory to store weights: ")
+            self.federated_averaging(weights, 1)
         elif inp == "4":
             self.plot_latencies()
         elif inp == "5":
-            exit()
+            return
 
     def store_and_transmit_dataset(self, dataset):
         if self.get_storage_information(dataset):
@@ -107,23 +110,32 @@ class MasterNode:
             print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
-                self.compute_at_peer(peer)
+                result = self.compute_at_peer(peer)
                 self.update_bootstrap(peer, "IDLE")
 
     def request_idle_workers(self):
-        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            try:
+        try:
+            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                    channel
+                )
                 response = stub.GetIdleWorkers(communication_with_bootstrap_pb2.Empty())
                 max_workers = int(os.getenv("UPPER_LIMIT_FOR_WORKERS", default=10))
                 num_workers = min(len(response.idle_workers), max_workers)
                 # Take user input or use a predetermined number of workers.
                 required_workers = int(input("Enter the number of tasks to assign: "))
-                self.number_of_tasks = required_workers
+                if required_workers > num_workers:
+                    print(
+                        f"Number of tasks requested is greater than available workers. Assigning {num_workers} workers."
+                    )
+                    self.number_of_tasks = num_workers
+                else:
+                    self.number_of_tasks = required_workers
                 self.working_nodes = self.choose_workers(response.idle_workers)
-
-            except grpc.RpcError as e:
-                print(f"Error: gRPC communication failed - {e}")
+                return 1
+        except grpc.RpcError as e:
+            print(f"Error: Can not get Idle Workers - {e}")
+            return 0
 
     def choose_workers(self, idle_workers):
         # Choose available workers for a task.
@@ -158,7 +170,7 @@ class MasterNode:
             print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
-                self.transmit_model_peer(codepath, peer, weights)
+                result = self.transmit_model_peer(codepath, peer, weights)
                 self.update_bootstrap(peer, "IDLE")
 
     def send_heart_beat(self):
@@ -296,9 +308,12 @@ class MasterNode:
                 print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
                     self.update_bootstrap(peer, "BUSY")
-                    self.transmit_dataset_peer(shard, peer, dataset_path)
+                    result = self.transmit_dataset_peer(shard, peer, dataset_path)
                     self.update_bootstrap(peer, "IDLE")
-        self.update_storage_information(dataset_path, 0)
+        update_status = 0
+        while update_status == 0:
+            update_status = self.update_storage_information(dataset_path, 0)
+            print(f"Update status: {update_status}")
 
     def transmit_dataset_peer(self, data, peer, dataset_path):
         with open(data[2], "r", newline="") as csvfile:
@@ -311,148 +326,196 @@ class MasterNode:
         filepath = "/".join(components)
         print(f"Filepath: {filepath}")
 
-        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
-            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
-            request = communication_with_worker_pb2.DatasetRequest(
-                datasetPath=filepath,
-                dataset=communication_with_worker_pb2.Dataset(
-                    rows=[
-                        communication_with_worker_pb2.Row(values=row) for row in dataset
-                    ]
-                ),
-            )
-            response = stub.DatasetTransfer(request)
-            print(f"Dataset transmitted to {peer} with status: {response.status}")
+        try:
+            with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+                stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+                request = communication_with_worker_pb2.DatasetRequest(
+                    datasetPath=filepath,
+                    dataset=communication_with_worker_pb2.Dataset(
+                        rows=[
+                            communication_with_worker_pb2.Row(values=row)
+                            for row in dataset
+                        ]
+                    ),
+                )
+                response = stub.DatasetTransfer(request)
+                print(f"Dataset transmitted to {peer} with status: {response.status}")
 
-            if response.status == "SUCCESS":
-                if self.storageInformation.get(dataset_path):
-                    self.storageInformation[dataset_path].append(peer)
-                else:
-                    self.storageInformation[dataset_path] = [peer]
-            print(f"Storage Information: {self.storageInformation}")
+                if response.status == "SUCCESS":
+                    if self.storageInformation.get(dataset_path):
+                        self.storageInformation[dataset_path].append(peer)
+                    else:
+                        self.storageInformation[dataset_path] = [peer]
+                    print(f"Storage Information: {self.storageInformation}")
+                    return 1
+                return 0
+        except grpc.RpcError as e:
+            print(f"Failed to transmit dataset to {peer}: {e}")
+            return 0
 
     def compute_at_peer(self, peer):
-        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
-            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
-            request = communication_with_worker_pb2.ComputeRequest()
-            response = stub.Compute(request)
-            print(f"Computation completed at {peer} with status: {response.status}")
+        try:
+            with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+                stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+                request = communication_with_worker_pb2.ComputeRequest()
+                response = stub.Compute(request)
+                print(f"Computation completed at {peer} with status: {response.status}")
+                if response.status == "SUCCESS":
+                    # Create a directory called weights if not present.
+                    if not os.path.exists("weights"):
+                        os.makedirs("weights")
 
-            # Create a directory called weights if not present.
-            if not os.path.exists("weights"):
-                os.makedirs("weights")
-
-            # Save the bytes received in response.chunk to a file called weights.joblib.
-            # For each peer append its address to the file name.
-            with open(f"weights/weights_{peer[0]}_{peer[1]}.joblib", "wb") as f:
-                f.write(response.chunk)
+                    # Save the bytes received in response.chunk to a file called weights.joblib.
+                    # For each peer append its address to the file name.
+                    with open(f"weights/weights_{peer[0]}_{peer[1]}.joblib", "wb") as f:
+                        f.write(response.chunk)
+                    return 1
+                return 0
+        except grpc.RpcError as e:
+            print(f"Failed to compute at {peer}: {e}")
+            return 0
 
     def transmit_model_peer(self, filepath, peer, weights_filepath):
-        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
-            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+        try:
+            with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+                stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
 
-            # Construct the store file paths
-            components = filepath.split("/")
-            components[-2] = "compute"
-            storefilepath = "/".join(components)
+                # Construct the store file paths
+                components = filepath.split("/")
+                components[-2] = "compute"
+                storefilepath = "/".join(components)
 
-            components = weights_filepath.split("/")
-            components[-2] = "compute"
-            storeweightspath = "/".join(components)
+                components = weights_filepath.split("/")
+                components[-2] = "compute"
+                storeweightspath = "/".join(components)
 
-            # Serialize the weights file
-            with open(weights_filepath, "rb") as f_weights:
-                weights_data = f_weights.read()
-                pickled_weights = pickle.dumps(weights_data)
+                # Serialize the weights file
+                with open(weights_filepath, "rb") as f_weights:
+                    weights_data = f_weights.read()
+                    pickled_weights = pickle.dumps(weights_data)
 
-            # Open the model file and read it in chunks
-            CHUNK_SIZE = 4096
-            with open(filepath, "rb") as f:
-                while True:
-                    chunk = f.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
+                # Open the model file and read it in chunks
+                CHUNK_SIZE = 4096
+                with open(filepath, "rb") as f:
+                    while True:
+                        chunk = f.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
 
-                    # Create a ModelRequest message with the current chunk and file path
-                    model_request = communication_with_worker_pb2.ModelRequest(
-                        modelPath=storefilepath,
-                        chunk=chunk,
-                        weightsPath=storeweightspath,
-                        weightsChunk=pickled_weights,
-                    )
+                        # Create a ModelRequest message with the current chunk and file path
+                        model_request = communication_with_worker_pb2.ModelRequest(
+                            modelPath=storefilepath,
+                            chunk=chunk,
+                            weightsPath=storeweightspath,
+                            weightsChunk=pickled_weights,
+                        )
 
-                    # Call the ModelTransfer RPC method with the ModelRequest
-                    model_response = stub.ModelTransfer(model_request)
+                        # Call the ModelTransfer RPC method with the ModelRequest
+                        model_response = stub.ModelTransfer(model_request)
+                        print("Received status:", model_response.status)
 
-                    # Handle the response, if needed
-                    print("Received status:", model_response.status)
-                    print("Path received:", model_response.modelPath)
-
-        print("Model transmission completed to peer:", peer)
+                        if model_response.status == "SUCCESS":
+                            print("Path received:", model_response.modelPath)
+                            print("Model transmission completed to peer:", peer)
+                            return 1
+                        else:
+                            print("Model transmission failed.")
+                            return 0
+        except grpc.RpcError as e:
+            print(f"Failed to transmit model to {peer}: {e}")
+            return 0
 
     def get_idle_ack(self, peer):
-        print(f"Checking status of {peer}")
-        with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
-            stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
-            response = stub.IdleHeartbeat(
-                communication_with_worker_pb2.IdleHeartbeatRequest(message="Idle?")
-            )
-        return response.status
+        try:
+            print(f"Checking status of {peer}")
+            with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
+                stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
+                response = stub.IdleHeartbeat(
+                    communication_with_worker_pb2.IdleHeartbeatRequest(message="Idle?")
+                )
+            return response.status
+        except grpc.RpcError as e:
+            print(f"Failed to get idle ack from {peer}: {e}")
+            return "Inactive"
 
     def update_bootstrap(self, peer, state):
-        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            request = communication_with_bootstrap_pb2.UpdateIdleRequest(
-                address=communication_with_bootstrap_pb2.Address(
-                    IP=peer[0], port=peer[1]
-                ),
-            )
-            if state == "IDLE":
-                stub.UpdateIdleWorker(request)
-            elif state == "BUSY":
-                stub.UpdateNotIdleWorker(request)
+        try:
+            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                    channel
+                )
+                request = communication_with_bootstrap_pb2.UpdateIdleRequest(
+                    address=communication_with_bootstrap_pb2.Address(
+                        IP=peer[0], port=peer[1]
+                    ),
+                )
+                if state == "IDLE":
+                    stub.UpdateIdleWorker(request)
+                elif state == "BUSY":
+                    stub.UpdateNotIdleWorker(request)
+        except grpc.RpcError as e:
+            print(f"Failed to update status of {peer} because Bootstrap is down: {e}")
 
     def update_storage_information(self, dataset_path, type):
-        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            peers = []
-            for peer in self.storageInformation[dataset_path]:
-                peers.append(
-                    communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
+        try:
+            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                    channel
                 )
-            request = communication_with_bootstrap_pb2.UpdateStorageRequest(
-                address=communication_with_bootstrap_pb2.Address(
-                    IP=self.IP, port=self.port
-                ),
-                path=dataset_path,
-                type=0,
-                workers=peers,
-            )
-            if type == 0:
-                request.type = communication_with_bootstrap_pb2.FileTypleEnum.DATASET
-            else:
-                request.type = communication_with_bootstrap_pb2.FileTypleEnum.MODEL
-            response = stub.UpdateStorage(request)
-            print(f"Storage information updated with status: {response.status}")
+                peers = []
+                for peer in self.storageInformation[dataset_path]:
+                    peers.append(
+                        communication_with_bootstrap_pb2.Address(
+                            IP=peer[0], port=peer[1]
+                        )
+                    )
+                request = communication_with_bootstrap_pb2.UpdateStorageRequest(
+                    address=communication_with_bootstrap_pb2.Address(
+                        IP=self.IP, port=self.port
+                    ),
+                    path=dataset_path,
+                    type=0,
+                    workers=peers,
+                )
+                if type == 0:
+                    request.type = (
+                        communication_with_bootstrap_pb2.FileTypleEnum.DATASET
+                    )
+                else:
+                    request.type = communication_with_bootstrap_pb2.FileTypleEnum.MODEL
+                response = stub.UpdateStorage(request)
+                print(f"Storage information updated with status: {response.status}")
+                if response.status == "SUCCESS":
+                    return 1
+                return 0
+        except grpc.RpcError as e:
+            print(f"Failed to update storage information for {dataset_path}: {e}")
+            return 0
 
     def get_storage_information(self, dataset_path):
-        with grpc.insecure_channel(self.bootstrap_server_address) as channel:
-            stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(channel)
-            request = communication_with_bootstrap_pb2.GetStorageRequest(
-                path=dataset_path,
-                address=communication_with_bootstrap_pb2.Address(
-                    IP=self.IP, port=self.port
-                ),
-            )
-            response = stub.GetStorage(request)
-            print(f"Storage information for {dataset_path}: {response.status}")
+        try:
+            with grpc.insecure_channel(self.bootstrap_server_address) as channel:
+                stub = communication_with_bootstrap_pb2_grpc.BootstrapServiceStub(
+                    channel
+                )
+                request = communication_with_bootstrap_pb2.GetStorageRequest(
+                    path=dataset_path,
+                    address=communication_with_bootstrap_pb2.Address(
+                        IP=self.IP, port=self.port
+                    ),
+                )
+                response = stub.GetStorage(request)
+                print(f"Storage information for {dataset_path}: {response.status}")
 
-        if response.status == "SUCCESS":
-            peers = []
-            for peer in response.workers:
-                peers.append((peer.IP, peer.port))
-            return peers
-        return None
+            if response.status == "SUCCESS":
+                peers = []
+                for peer in response.workers:
+                    peers.append((peer.IP, peer.port))
+                return peers
+            return None
+        except grpc.RpcError as e:
+            print(f"Failed to get storage information for {dataset_path}: {e}")
+            return None
 
     def plot_latencies(self):
         # Plot storage latencies
@@ -460,7 +523,6 @@ class MasterNode:
         with open("storage_latencies.txt", "r") as f:
             self.storage_latencies = [float(latency) for latency in f.readlines()]
 
-        print(self.storage_latencies)
         plt.plot(self.storage_latencies, label="Storage Latency")
         plt.xlabel("Operation")
         plt.ylabel("Latency (s)")
@@ -485,11 +547,7 @@ class MasterNode:
 
     def measure_latency(self, func, *args, **kwargs):
         start_time = time.time()
-        print(f"s: {start_time}")
-        result = func(*args, **kwargs)
+        func(*args, **kwargs)
         end_time = time.time()
-        print(f"e: {end_time}")
         latency = end_time - start_time
-        print(f"Latency: {latency}")
-        print()
-        return latency, result
+        return latency
