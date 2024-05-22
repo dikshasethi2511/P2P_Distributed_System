@@ -21,6 +21,14 @@ class Address(_message.Message):
     port: str
     def __init__(self, IP: _Optional[str] = ..., port: _Optional[str] = ...) -> None: ...
 
+class Shards(_message.Message):
+    __slots__ = ("address", "shard")
+    ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    SHARD_FIELD_NUMBER: _ClassVar[int]
+    address: Address
+    shard: int
+    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., shard: _Optional[int] = ...) -> None: ...
+
 class Specs(_message.Message):
     __slots__ = ("CPU", "RAM", "storage")
     CPU_FIELD_NUMBER: _ClassVar[int]
@@ -84,8 +92,8 @@ class UpdateStorageRequest(_message.Message):
     address: Address
     path: str
     type: FileTypleEnum
-    workers: _containers.RepeatedCompositeFieldContainer[Address]
-    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., path: _Optional[str] = ..., type: _Optional[_Union[FileTypleEnum, str]] = ..., workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+    workers: _containers.RepeatedCompositeFieldContainer[Shards]
+    def __init__(self, address: _Optional[_Union[Address, _Mapping]] = ..., path: _Optional[str] = ..., type: _Optional[_Union[FileTypleEnum, str]] = ..., workers: _Optional[_Iterable[_Union[Shards, _Mapping]]] = ...) -> None: ...
 
 class UpdateStorageResponse(_message.Message):
     __slots__ = ("status",)
@@ -106,5 +114,5 @@ class GetStorageResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     WORKERS_FIELD_NUMBER: _ClassVar[int]
     status: str
-    workers: _containers.RepeatedCompositeFieldContainer[Address]
-    def __init__(self, status: _Optional[str] = ..., workers: _Optional[_Iterable[_Union[Address, _Mapping]]] = ...) -> None: ...
+    workers: _containers.RepeatedCompositeFieldContainer[Shards]
+    def __init__(self, status: _Optional[str] = ..., workers: _Optional[_Iterable[_Union[Shards, _Mapping]]] = ...) -> None: ...

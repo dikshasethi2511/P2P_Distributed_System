@@ -10,6 +10,11 @@ message Address {
     string port = 2;
 }
 
+message Shards {
+    Address address = 1;
+    int32 shard = 2;
+}
+
 message Specs {
     string CPU = 1;
     string RAM = 2;
@@ -48,7 +53,7 @@ message UpdateStorageRequest {
     Address address = 1;
     string path = 2;
     FileTypleEnum type = 3;
-    repeated Address workers = 4;
+    repeated Shards workers = 4;
 
 }
 
@@ -63,7 +68,7 @@ message GetStorageRequest {
 
 message GetStorageResponse {
     string status = 1;
-    repeated Address workers = 2;
+    repeated Shards workers = 2;
 }
 
 service BootstrapService {

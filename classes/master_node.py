@@ -21,7 +21,6 @@ from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 
 load_dotenv()
-from task_queue import TaskQueue
 import csv
 from joblib import dump
 import time
@@ -33,7 +32,6 @@ class MasterNode:
         self.alloted_workers_to_shards = {}
         self.number_of_tasks = 0
         self.leftover_count = 0
-        self.task_queue = TaskQueue()
         self.data_locations = {}
         self.bootstrap_server_address = bootstrap_server_address
         self.IP = IP
@@ -45,36 +43,27 @@ class MasterNode:
         self.computation_latencies = []
 
     def run_master(self):
-        # Run master node.
-
-        print("Master Node Menu")
         print(
-            "1. Upload Dataset\n2. Upload Code\n3. Compute\n4. Plot Latency Graph\n5. Exit"
+            "Master Node Menu\n1. Upload Dataset\n2. Upload Code\n3. Compute\n4. Plot Latency Graph\n5. Exit"
         )
         inp = input("Enter your choice: ")
         if inp == "1":
-            if self.request_idle_workers() == 0:
+            self.working_nodes = self.choose_workers(self.request_idle_workers())
+            if len(self.working_nodes) == 0:
+                print("No workers available. Try again later.")
                 return
             dataset = input("Enter the dataset file path: ")
-            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/data/Iris.csv
             latency = self.measure_latency(self.store_and_transmit_dataset, dataset)
             self.storage_latencies.append(latency)
             with open("storage_latencies.txt", "a") as f:
                 for latency in self.storage_latencies:
                     f.write(f"{latency}\n")
         elif inp == "2":
-            if self.request_idle_workers() == 0:
-                return
             dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
-            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/model.py
-            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/models/initial_knn_model.joblib
             weights = input("Enter the weights file path: ")
             self.initiate_tasks(code, dataset, weights)
         elif inp == "3":
-            # /mnt/c/Users/hp/Desktop/IIITD/BTP/P2P_Distributed_System/communication/weights
-            if self.request_idle_workers() == 0:
-                return
             dataset = input("Enter the dataset file path: ")
             latency = self.measure_latency(self.compute, dataset)
             self.computation_latencies.append(latency)
@@ -94,7 +83,6 @@ class MasterNode:
             return
         self.upload_dataset(dataset)
         self.initiate_data_distribution(self.data_locations, self.working_nodes)
-        self.add_leftover_tasks()
         self.transmit_dataset(dataset)
 
     def compute(self, datasetpath):
@@ -107,7 +95,6 @@ class MasterNode:
         print(f"Peers: {peers}")
         for peer in peers:
             status = self.get_idle_ack(peer)
-            print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
                 result = self.compute_at_peer(peer)
@@ -120,38 +107,34 @@ class MasterNode:
                     channel
                 )
                 response = stub.GetIdleWorkers(communication_with_bootstrap_pb2.Empty())
-                max_workers = int(os.getenv("UPPER_LIMIT_FOR_WORKERS", default=10))
-                num_workers = min(len(response.idle_workers), max_workers)
-                # Take user input or use a predetermined number of workers.
-                required_workers = int(input("Enter the number of tasks to assign: "))
-                if required_workers > num_workers:
-                    print(
-                        f"Number of tasks requested is greater than available workers. Assigning {num_workers} workers."
-                    )
-                    self.number_of_tasks = num_workers
-                else:
-                    self.number_of_tasks = required_workers
-                self.working_nodes = self.choose_workers(response.idle_workers)
-                return 1
+                idle_workers = [
+                    address
+                    for address in response.idle_workers
+                    if address.IP != self.IP or address.port != self.port
+                ]
+                return idle_workers
         except grpc.RpcError as e:
             print(f"Error: Can not get Idle Workers - {e}")
             return 0
 
     def choose_workers(self, idle_workers):
+        if len(idle_workers) == 0:
+            print("No workers available. Try again later.")
+            return []
+        max_workers = int(os.getenv("UPPER_LIMIT_FOR_WORKERS", default=10))
+        num_workers = min(len(idle_workers), max_workers)
+        # Take user input or use a predetermined number of workers.
+        required_workers = int(input("Enter the number of tasks to assign: "))
+        if required_workers > num_workers:
+            print(
+                f"Number of tasks requested is greater than available workers. Assigning {num_workers} workers."
+            )
+            self.number_of_tasks = num_workers
+        else:
+            self.number_of_tasks = required_workers
         # Choose available workers for a task.
         # Filter out own address from the list of idle workers.
-        idle_workers_chosen = [
-            address
-            for address in idle_workers
-            if address.IP != self.IP or address.port != self.port
-        ]
-
-        if len(idle_workers_chosen) < self.number_of_tasks:
-            self.leftover_count = self.number_of_tasks - len(idle_workers_chosen)
-
-        available_workers = self.number_of_tasks - self.leftover_count
-        available_workers = min(available_workers, len(idle_workers_chosen))
-        chosen_workers = random.sample(idle_workers_chosen, available_workers)
+        chosen_workers = random.sample(idle_workers, self.number_of_tasks)
         print(f"Chosen workers: {chosen_workers}")
         return chosen_workers
 
@@ -165,13 +148,37 @@ class MasterNode:
             )
             return
         print(f"Peers: {peers}")
+        donot_contact = []
+        failed_peers = []
         for peer in peers:
             status = self.get_idle_ack(peer)
-            print(f"Status: {status}")
             if status == communication_with_worker_pb2.IDLE:
                 self.update_bootstrap(peer, "BUSY")
                 result = self.transmit_model_peer(codepath, peer, weights)
+                if result == 0:
+                    failed_peers.append(peer)
+                    continue
                 self.update_bootstrap(peer, "IDLE")
+                donot_contact.append(peer)
+            else:
+                failed_peers.append(peer)
+
+        if len(failed_peers) > 0:
+            idle_peers = self.request_idle_workers()
+            idle_peers = [(peer.IP, peer.port) for peer in idle_peers]
+            idle_peers = [peer for peer in idle_peers if peer not in donot_contact]
+            if len(idle_peers) == 0:
+                print("No workers available. Try again later.")
+                return
+
+            if len(idle_peers) < len(failed_peers):
+                print("Not enough workers available to transmit the code.")
+                return
+
+            if len(idle_peers) >= len(failed_peers):
+                # from stroage see failed unit shard and send them to idle worker with code & weights
+                
+                pass
 
     def send_heart_beat(self):
         # Send heartbeat to working nodes.
@@ -193,17 +200,6 @@ class MasterNode:
                     (base_folder, allocated_shard_count, file_path)
                 )
             allocated_shard_count += 1
-
-    def add_leftover_tasks(self):
-        # For each base folder, find the remaining shards and add them to the task queue.
-        for remaining_count in range(
-            self.number_of_tasks - self.leftover_count + 1, self.number_of_tasks + 1
-        ):
-            for base_folder in self.data_locations.keys():
-                file_path = self.data_locations[base_folder][remaining_count]
-                self.task_queue.enqueue((base_folder, remaining_count, file_path))
-
-        # print(f"Task Queue: {self.task_queue.queue}")
 
     def upload_dataset(self, dataset_path):
         # Upload dataset to bootstrap server or distribute to peers.
@@ -230,8 +226,6 @@ class MasterNode:
 
         # Divide the content into shards and store each shard in a separate file
         start = 1
-        print(f"Shard size: {shard_size}")
-        print(f"Number of tasks: {self.number_of_tasks}")
         for i in range(self.number_of_tasks):
             shard_content = [first_line] + content[start : start + shard_size]
             shard_file_path = os.path.join(
@@ -302,14 +296,60 @@ class MasterNode:
         print(f"Averaged model saved to {output_file}")
 
     def transmit_dataset(self, dataset_path):
+        left_over_tasks = []
+        not_contacted_peers = []
         for peer in self.alloted_workers_to_shards.keys():
             for shard in self.alloted_workers_to_shards[peer]:
                 status = self.get_idle_ack(peer)
-                print(f"Status: {status}")
                 if status == communication_with_worker_pb2.IDLE:
                     self.update_bootstrap(peer, "BUSY")
                     result = self.transmit_dataset_peer(shard, peer, dataset_path)
+                    if result == 0:
+                        left_over_tasks.append(self.alloted_workers_to_shards[peer])
+                        break
                     self.update_bootstrap(peer, "IDLE")
+                else:
+                    left_over_tasks.append(self.alloted_workers_to_shards[peer])
+                    break
+            not_contacted_peers.append(peer)
+
+        if len(left_over_tasks) > 0:
+            idle_peers = self.request_idle_workers()
+            idle_peers = [(peer.IP, peer.port) for peer in idle_peers]
+            idle_peers = [peer for peer in idle_peers if peer not in not_contacted_peers]
+            if len(idle_peers) == 0:
+                print("No workers available. Try again later.")
+                return
+
+            if len(idle_peers) < len(left_over_tasks):
+                print("Not enough workers available to transmit the dataset.")
+                return
+
+            if len(idle_peers) >= len(left_over_tasks):
+                print(f"Left over tasks: {left_over_tasks}")
+                print(f"not contacted peers: {not_contacted_peers}")
+                print(f"Idle peers: {idle_peers}")
+                for task in left_over_tasks:
+                    for peer in idle_peers:
+                        flag = 0
+                        for shard in task:
+                            status = self.get_idle_ack(peer)
+                            if status == communication_with_worker_pb2.IDLE:
+                                self.update_bootstrap(peer, "BUSY")
+                                result = self.transmit_dataset_peer(
+                                    shard, peer, dataset_path
+                                )
+                                if result == 0:
+                                    flag = -1
+                                    break
+                                self.update_bootstrap(peer, "IDLE")
+                            else:
+                                flag = -1
+                                break
+                        if flag == 0:
+                            idle_peers.remove(peer)
+                            break
+                        
         update_status = 0
         while update_status == 0:
             update_status = self.update_storage_information(dataset_path, 0)
@@ -324,7 +364,6 @@ class MasterNode:
         name, extention = components[-1].split(".")
         components[-1] = name.split("_")[0] + "." + extention
         filepath = "/".join(components)
-        print(f"Filepath: {filepath}")
 
         try:
             with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
@@ -343,9 +382,10 @@ class MasterNode:
 
                 if response.status == "SUCCESS":
                     if self.storageInformation.get(dataset_path):
-                        self.storageInformation[dataset_path].append(peer)
+
+                        self.storageInformation[dataset_path].append(peer + (data[1],))
                     else:
-                        self.storageInformation[dataset_path] = [peer]
+                        self.storageInformation[dataset_path] = [peer + (data[1],)]
                     print(f"Storage Information: {self.storageInformation}")
                     return 1
                 return 0
@@ -412,8 +452,6 @@ class MasterNode:
 
                         # Call the ModelTransfer RPC method with the ModelRequest
                         model_response = stub.ModelTransfer(model_request)
-                        print("Received status:", model_response.status)
-
                         if model_response.status == "SUCCESS":
                             print("Path received:", model_response.modelPath)
                             print("Model transmission completed to peer:", peer)
@@ -427,7 +465,6 @@ class MasterNode:
 
     def get_idle_ack(self, peer):
         try:
-            print(f"Checking status of {peer}")
             with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
                 stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
                 response = stub.IdleHeartbeat(
@@ -465,8 +502,11 @@ class MasterNode:
                 peers = []
                 for peer in self.storageInformation[dataset_path]:
                     peers.append(
-                        communication_with_bootstrap_pb2.Address(
-                            IP=peer[0], port=peer[1]
+                        communication_with_bootstrap_pb2.Shards(
+                            address=communication_with_bootstrap_pb2.Address(
+                                IP=peer[0], port=peer[1]
+                            ),
+                            shard=peer[2]
                         )
                     )
                 request = communication_with_bootstrap_pb2.UpdateStorageRequest(

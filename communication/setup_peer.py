@@ -14,9 +14,9 @@ from concurrent import futures
 
 def run_peer(bootstrap_server_address):
     # Take input for the address and specs.
-    CPU = input("Enter CPU: ")
-    RAM = input("Enter RAM: ")
-    storage = input("Enter storage: ")
+    CPU = '1' # input("Enter CPU: ")
+    RAM = '2' # input("Enter RAM: ")
+    storage = '3' # input("Enter storage: ")
     IP = input("Enter IP: ")
     port = input("Enter port: ")
 

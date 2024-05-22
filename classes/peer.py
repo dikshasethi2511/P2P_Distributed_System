@@ -76,7 +76,7 @@ class Peer:
                     )
                     status = stub.ActiveHeartbeat(request)
                 print("Heartbeat status: ", status.status)
-                time.sleep(30)
+                time.sleep(15)
             except Exception as e:
                 print(f"Error sending heartbeat to Bootstrap Server: {e}")
 

@@ -95,23 +95,27 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
             self.idle_servers.append(peer_uuid)
 
         return communication_with_bootstrap_pb2.Empty()
-    
+
     def UpdateStorage(self, request, context):
         master = (request.address.IP, request.address.port)
         if master not in self.storageInformation.keys():
             self.storageInformation[master] = {}
 
         self.storageInformation[master][request.path] = {}
-        self.storageInformation[master][request.path]["type"] = "dataset" if request.type == 0 else "model"
+        self.storageInformation[master][request.path]["type"] = (
+            "dataset" if request.type == 0 else "model"
+        )
         self.storageInformation[master][request.path]["peers"] = []
-        
+
         for peer in request.workers:
             print(peer)
-            self.storageInformation[master][request.path]["peers"].append((peer.IP, peer.port))
+            self.storageInformation[master][request.path]["peers"].append(
+                (peer.address.IP, peer.address.port, peer.shard)
+            )
 
         print(self.storageInformation)
         return communication_with_bootstrap_pb2.UpdateStorageResponse(status="SUCCESS")
-    
+
     def GetStorage(self, request, context):
         master = (request.address.IP, request.address.port)
         path = request.path
@@ -120,13 +124,21 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
                 peers = []
                 for peer in self.storageInformation[master][path]["peers"]:
                     peers.append(
-                        communication_with_bootstrap_pb2.Address(IP=peer[0], port=peer[1])
+                        communication_with_bootstrap_pb2.Shards(
+                            address=communication_with_bootstrap_pb2.Address(
+                                IP=peer[0], port=peer[1]
+                            ),
+                            shard=peer[2],
+                        )
                     )
                 print(peers)
-                return communication_with_bootstrap_pb2.GetStorageResponse(status="SUCCESS", workers=peers)
-        
-        return communication_with_bootstrap_pb2.GetStorageResponse(status="FAILURE", workers=[])
-        
+                return communication_with_bootstrap_pb2.GetStorageResponse(
+                    status="SUCCESS", workers=peers
+                )
+
+        return communication_with_bootstrap_pb2.GetStorageResponse(
+            status="FAILURE", workers=[]
+        )
 
     def add_server_to_network(self, peer_uuid):
         # Add server to active_servers list.
@@ -179,5 +191,3 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
             for uuid in peers:
                 if time.time() - self.active_heartbeat[uuid] > 50:
                     self.remove_server(uuid)
-
-    
