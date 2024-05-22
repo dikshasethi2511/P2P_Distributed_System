@@ -34,7 +34,7 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
         communication_with_worker_pb2_grpc.add_WorkerServiceServicer_to_server(
             worker_service, server
         )
-        server.add_insecure_port(f"{self.IP}:{self.port}")
+        server.add_insecure_port(f"[::]:{self.port}")
         print(f"Worker node running on {self.IP}:{self.port}")
         server.start()
         server.wait_for_termination()
