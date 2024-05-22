@@ -550,7 +550,7 @@ class MasterNode:
             if response.status == "SUCCESS":
                 peers = []
                 for peer in response.workers:
-                    peers.append((peer.IP, peer.port))
+                    peers.append((peer.address.IP, peer.address.port))
                 return peers
             return None
         except grpc.RpcError as e:

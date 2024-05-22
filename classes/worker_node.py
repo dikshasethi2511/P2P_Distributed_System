@@ -108,6 +108,9 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
                 output_directory, os.path.basename(request.modelPath)
             )
 
+            with open(model_output_file, "w") as f:
+                f.write(f"PORT = {self.port}\n")
+
             # Write the received chunk to the model file
             with open(model_output_file, "ab") as f:
                 f.write(request.chunk)
