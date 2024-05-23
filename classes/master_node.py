@@ -177,8 +177,22 @@ class MasterNode:
 
             if len(idle_peers) >= len(failed_peers):
                 # from stroage see failed unit shard and send them to idle worker with code & weights
-                
-                pass
+                for peer in failed_peers:
+                    for unit in peers:
+                        if unit[0] == peer[0] and unit[1] == peer[1]:
+                            shard = unit[2]
+                            path = datasetpath.split(".")[0] + "shard" + str(shard) + "." + datasetpath.split(".")[1]
+                            for idle_peer in idle_peers:
+                                status = self.get_idle_ack(idle_peer)
+                                if status == communication_with_worker_pb2.IDLE:
+                                    self.update_bootstrap(idle_peer, "BUSY")
+                                    self.transmit_dataset_peer((datasetpath, shard, path), idle_peer, datasetpath)
+                                    if result == 1:
+                                        result = self.transmit_model_peer(codepath, idle_peer, weights)
+                                        if result == 1:
+                                            self.update_storage_information(datasetpath, 0)
+                                            break
+                                    self.update_bootstrap(idle_peer, "IDLE")
 
     def send_heart_beat(self):
         # Send heartbeat to working nodes.
@@ -356,6 +370,7 @@ class MasterNode:
             print(f"Update status: {update_status}")
 
     def transmit_dataset_peer(self, data, peer, dataset_path):
+        CHUNK_SIZE = int(4*1024*1024)
         with open(data[2], "r", newline="") as csvfile:
             dataset = list(csv.reader(csvfile))
 
@@ -368,31 +383,37 @@ class MasterNode:
         try:
             with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
                 stub = communication_with_worker_pb2_grpc.WorkerServiceStub(channel)
-                request = communication_with_worker_pb2.DatasetRequest(
-                    datasetPath=filepath,
-                    dataset=communication_with_worker_pb2.Dataset(
-                        rows=[
-                            communication_with_worker_pb2.Row(values=row)
-                            for row in dataset
-                        ]
-                    ),
-                )
-                response = stub.DatasetTransfer(request)
-                print(f"Dataset transmitted to {peer} with status: {response.status}")
 
-                if response.status == "SUCCESS":
-                    if self.storageInformation.get(dataset_path):
+                # Chunk the dataset and send each chunk
+                total_rows = len(dataset)
+                chunks = [dataset[i:i + CHUNK_SIZE] for i in range(0, total_rows, CHUNK_SIZE)]
 
-                        self.storageInformation[dataset_path].append(peer + (data[1],))
-                    else:
-                        self.storageInformation[dataset_path] = [peer + (data[1],)]
-                    print(f"Storage Information: {self.storageInformation}")
-                    return 1
-                return 0
+                for i, chunk in enumerate(chunks):
+                    request = communication_with_worker_pb2.DatasetRequest(
+                        datasetPath=filepath,
+                        dataset=communication_with_worker_pb2.Dataset(
+                            rows=[
+                                communication_with_worker_pb2.Row(values=row)
+                                for row in chunk
+                            ]
+                        ),
+                    )
+                    response = stub.DatasetTransfer(request)
+                    print(f"Chunk {i} transmitted to {peer} with status: {response.status}")
+
+                    if response.status != "SUCCESS":
+                        print(f"Failed to transmit chunk {i} to {peer}")
+                        return 0
+
+                if self.storageInformation.get(dataset_path):
+                    self.storageInformation[dataset_path].append(peer + (data[1],))
+                else:
+                    self.storageInformation[dataset_path] = [peer + (data[1],)]
+                print(f"Storage Information: {self.storageInformation}")
+                return 1
         except grpc.RpcError as e:
             print(f"Failed to transmit dataset to {peer}: {e}")
             return 0
-
     def compute_at_peer(self, peer):
         try:
             with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:

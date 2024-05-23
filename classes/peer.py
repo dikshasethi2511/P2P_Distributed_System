@@ -74,8 +74,7 @@ class Peer:
                     request = communication_with_bootstrap_pb2.HeartbeatRequest(
                         uuid=self.uuid
                     )
-                    status = stub.ActiveHeartbeat(request)
-                print("Heartbeat status: ", status.status)
+                    stub.ActiveHeartbeat(request)
                 time.sleep(15)
             except Exception as e:
                 print(f"Error sending heartbeat to Bootstrap Server: {e}")

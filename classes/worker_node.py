@@ -26,7 +26,13 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
 
     def worker(self):
         # Worker thread.
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        max_message_size = 20 * 1024 * 1024  # 20 MB
+
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
+                            options=[
+                                ('grpc.max_send_message_length', max_message_size),
+                                ('grpc.max_receive_message_length', max_message_size),
+                            ])
         print(f"Worker node running on {self.IP}:{self.port}")
         worker_service = WorkerNode(
             self.bootstrap_server_address, self.IP, self.port, self.uuid
@@ -181,7 +187,7 @@ class WorkerNode(communication_with_worker_pb2_grpc.WorkerServiceServicer):
         output_file = output_directory + "/" + os.path.split(dataset_path)[-1]
 
         # Write the dataset to a CSV file
-        with open(output_file, "w", newline="") as csvfile:
+        with open(output_file, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
             for row in dataset.rows:
                 writer.writerow(row.values)

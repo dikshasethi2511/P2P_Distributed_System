@@ -101,21 +101,32 @@ class BootstrapServer(communication_with_bootstrap_pb2_grpc.BootstrapServiceServ
         if master not in self.storageInformation.keys():
             self.storageInformation[master] = {}
 
-        self.storageInformation[master][request.path] = {}
-        self.storageInformation[master][request.path]["type"] = (
-            "dataset" if request.type == 0 else "model"
-        )
-        self.storageInformation[master][request.path]["peers"] = []
-
-        for peer in request.workers:
-            print(peer)
-            self.storageInformation[master][request.path]["peers"].append(
-                (peer.address.IP, peer.address.port, peer.shard)
+        if request.path not in self.storageInformation[master].keys():
+            self.storageInformation[master][request.path] = {}
+            self.storageInformation[master][request.path]["type"] = (
+                "dataset" if request.type == 0 else "model"
             )
+            self.storageInformation[master][request.path]["peers"] = []
+
+            for peer in request.workers:
+                print(peer)
+                self.storageInformation[master][request.path]["peers"].append(
+                    (peer.address.IP, peer.address.port, peer.shard)
+                )
+        else:
+            for peer in request.workers:
+                for peerbefore in self.storageInformation[master][request.path]["peers"]:
+                    if peer.shard == peerbefore[2]:
+                        self.storageInformation[master][request.path]["peers"].remove(
+                            peerbefore
+                        )
+                        self.storageInformation[master][request.path]["peers"].append(
+                            (peer.address.IP, peer.address.port, peer.shard)
+                        )
+            self.storageInformation
 
         print(self.storageInformation)
         return communication_with_bootstrap_pb2.UpdateStorageResponse(status="SUCCESS")
-
     def GetStorage(self, request, context):
         master = (request.address.IP, request.address.port)
         path = request.path
