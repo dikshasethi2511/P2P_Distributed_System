@@ -24,6 +24,7 @@ load_dotenv()
 import csv
 from joblib import dump
 import time
+import chardet
 
 
 class MasterNode:
@@ -181,16 +182,30 @@ class MasterNode:
                     for unit in peers:
                         if unit[0] == peer[0] and unit[1] == peer[1]:
                             shard = unit[2]
-                            path = datasetpath.split(".")[0] + "shard" + str(shard) + "." + datasetpath.split(".")[1]
+                            path = (
+                                datasetpath.split(".")[0]
+                                + "shard"
+                                + str(shard)
+                                + "."
+                                + datasetpath.split(".")[1]
+                            )
                             for idle_peer in idle_peers:
                                 status = self.get_idle_ack(idle_peer)
                                 if status == communication_with_worker_pb2.IDLE:
                                     self.update_bootstrap(idle_peer, "BUSY")
-                                    self.transmit_dataset_peer((datasetpath, shard, path), idle_peer, datasetpath)
+                                    self.transmit_dataset_peer(
+                                        (datasetpath, shard, path),
+                                        idle_peer,
+                                        datasetpath,
+                                    )
                                     if result == 1:
-                                        result = self.transmit_model_peer(codepath, idle_peer, weights)
+                                        result = self.transmit_model_peer(
+                                            codepath, idle_peer, weights
+                                        )
                                         if result == 1:
-                                            self.update_storage_information(datasetpath, 0)
+                                            self.update_storage_information(
+                                                datasetpath, 0
+                                            )
                                             break
                                     self.update_bootstrap(idle_peer, "IDLE")
 
@@ -219,9 +234,14 @@ class MasterNode:
         # Upload dataset to bootstrap server or distribute to peers.
         directory_path = os.path.dirname(dataset_path)
 
-        with open(dataset_path, "r", newline="") as csvfile:
-            csvreader = csv.reader(csvfile)
-            content = list(csvreader)  # Read CSV content into a list
+        with open(dataset_path, "rb") as file:
+            raw_data = file.read()
+            result = chardet.detect(raw_data)
+            encoding = result["encoding"]
+
+        with open(dataset_path, mode="r", encoding=encoding) as file:
+            csvreader = csv.reader(file)
+            content = list(csvreader)
 
             # Copy the first line to all shards
             first_line = content[0]
@@ -330,7 +350,9 @@ class MasterNode:
         if len(left_over_tasks) > 0:
             idle_peers = self.request_idle_workers()
             idle_peers = [(peer.IP, peer.port) for peer in idle_peers]
-            idle_peers = [peer for peer in idle_peers if peer not in not_contacted_peers]
+            idle_peers = [
+                peer for peer in idle_peers if peer not in not_contacted_peers
+            ]
             if len(idle_peers) == 0:
                 print("No workers available. Try again later.")
                 return
@@ -363,14 +385,14 @@ class MasterNode:
                         if flag == 0:
                             idle_peers.remove(peer)
                             break
-                        
+
         update_status = 0
         while update_status == 0:
             update_status = self.update_storage_information(dataset_path, 0)
             print(f"Update status: {update_status}")
 
     def transmit_dataset_peer(self, data, peer, dataset_path):
-        CHUNK_SIZE = int(4*1024*1024)
+        CHUNK_SIZE = int(4 * 1024 * 1024)
         with open(data[2], "r", newline="") as csvfile:
             dataset = list(csv.reader(csvfile))
 
@@ -386,7 +408,10 @@ class MasterNode:
 
                 # Chunk the dataset and send each chunk
                 total_rows = len(dataset)
-                chunks = [dataset[i:i + CHUNK_SIZE] for i in range(0, total_rows, CHUNK_SIZE)]
+                chunks = [
+                    dataset[i : i + CHUNK_SIZE]
+                    for i in range(0, total_rows, CHUNK_SIZE)
+                ]
 
                 for i, chunk in enumerate(chunks):
                     request = communication_with_worker_pb2.DatasetRequest(
@@ -399,7 +424,9 @@ class MasterNode:
                         ),
                     )
                     response = stub.DatasetTransfer(request)
-                    print(f"Chunk {i} transmitted to {peer} with status: {response.status}")
+                    print(
+                        f"Chunk {i} transmitted to {peer} with status: {response.status}"
+                    )
 
                     if response.status != "SUCCESS":
                         print(f"Failed to transmit chunk {i} to {peer}")
@@ -414,6 +441,7 @@ class MasterNode:
         except grpc.RpcError as e:
             print(f"Failed to transmit dataset to {peer}: {e}")
             return 0
+
     def compute_at_peer(self, peer):
         try:
             with grpc.insecure_channel(f"{peer[0]}:{peer[1]}") as channel:
@@ -527,7 +555,7 @@ class MasterNode:
                             address=communication_with_bootstrap_pb2.Address(
                                 IP=peer[0], port=peer[1]
                             ),
-                            shard=peer[2]
+                            shard=peer[2],
                         )
                     )
                 request = communication_with_bootstrap_pb2.UpdateStorageRequest(
