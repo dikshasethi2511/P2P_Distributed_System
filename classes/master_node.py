@@ -63,7 +63,12 @@ class MasterNode:
             dataset = input("Enter the dataset file path: ")
             code = input("Enter the code file path: ")
             weights = input("Enter the weights file path: ")
-            self.initiate_tasks(code, dataset, weights)
+            latency = self.measure_latency(self.initiate_tasks, code, dataset, weights)
+            self.storage_latencies.append(latency)
+            with open("storage_latencies.txt", "a") as f:
+                for latency in self.storage_latencies:
+                    f.write(f"{latency}\n")
+            
         elif inp == "3":
             dataset = input("Enter the dataset file path: ")
             latency = self.measure_latency(self.compute, dataset)
